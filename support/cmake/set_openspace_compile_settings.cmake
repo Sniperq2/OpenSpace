@@ -172,7 +172,7 @@ function (set_openspace_compile_settings target)
     "-Wvla"
     "-Wzero-length-array"
     "-Wno-missing-braces"
-    "-Wno-ignored-attributes"
+    "-Wno-unknown-attributes"
   )
   if (OPENSPACE_WARNINGS_AS_ERRORS)
     set(CLANG_WARNINGS ${CLANG_WARNINGS} "-Werror")

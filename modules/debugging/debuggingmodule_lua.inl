@@ -104,11 +104,7 @@ int renderCameraPath(lua_State* L) {
     poses.push_back(currentPath->endPoint().pose());
 
     // Create node lines between the positions
-    auto pointIdentifier = [](int i) {
-        return fmt::format("Point_{}", i);
-    };
-
-    auto addPoint = [pointIdentifier] (const std::string& id, glm::dvec3 p) {
+    auto addPoint = [](const std::string& id, glm::dvec3 p) {
         const std::string pointNode = "{"
             "Identifier = '" + id + "',"
             "Parent = '" + RenderedPathIdentifier + "',"
@@ -126,10 +122,8 @@ int renderCameraPath(lua_State* L) {
         );
     };
 
-    auto addLineBetweenPoints = [pointIdentifier] (const std::string& id1,
-                                                   const std::string& id2,
-                                                   const glm::vec3& color,
-                                                   float lineWidth)
+    auto addLineBetweenPoints = [](const std::string& id1, const std::string& id2,
+                                   const glm::vec3& color, float lineWidth)
     {
         const std::string lineNode = "{"
             "Identifier = '" + fmt::format("Line{}", id1) + "',"
@@ -160,6 +154,10 @@ int renderCameraPath(lua_State* L) {
 
         addPoint(id, pointPosition);
         addLineBetweenPoints(id, pointId, OrientationLineColor, 2.f);
+    };
+
+    auto pointIdentifier = [](int i) {
+        return fmt::format("Point_{}", i);
     };
 
     // Add first point separately so that we can create first line in for loop
