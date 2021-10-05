@@ -25,8 +25,11 @@
 #ifndef __OPENSPACE_CORE___SCRIPTSCHEDULER___H__
 #define __OPENSPACE_CORE___SCRIPTSCHEDULER___H__
 
+#include <openspace/properties/propertyowner.h>
+
+#include <openspace/properties/scalar/boolproperty.h>
+#include <openspace/navigation/keyframenavigator.h>
 #include <openspace/scripting/lualibrary.h>
-#include <openspace/interaction/keyframenavigator.h>
 
 #include <functional>
 #include <queue>
@@ -44,8 +47,10 @@ struct LuaLibrary;
  * Maintains an ordered list of <code>ScheduledScript</code>s and provides a simple
  * interface for retrieveing scheduled scripts
  */
-class ScriptScheduler {
+class ScriptScheduler : public properties::PropertyOwner {
 public:
+    ScriptScheduler();
+
     struct ScheduledScript {
         ScheduledScript() = default;
         ScheduledScript(const ghoul::Dictionary& dict);
@@ -137,6 +142,7 @@ public:
     static documentation::Documentation Documentation();
 
 private:
+    properties::BoolProperty _enabled;
     std::vector<double> _timings;
     std::vector<std::string> _forwardScripts;
     std::vector<std::string> _backwardScripts;

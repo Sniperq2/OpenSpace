@@ -25,6 +25,7 @@
 #include <openspace/util/time.h>
 
 #include <openspace/engine/globals.h>
+#include <openspace/scene/profile.h>
 #include <openspace/scripting/scriptengine.h>
 #include <openspace/util/memorymanager.h>
 #include <openspace/util/spicemanager.h>
@@ -121,6 +122,22 @@ void Time::ISO8601(char* buffer) const {
     SpiceManager::ref().dateFromEphemerisTime(_time, buffer, S, Format);
 }
 
+void Time::setTimeRelativeFromProfile(const std::string& setTime) {
+    ghoul::lua::LuaState L(ghoul::lua::LuaState::IncludeStandardLibrary::Yes);
+
+    luascriptfunctions::time_currentWallTime(L);
+    ghoul::lua::push(L, setTime);
+    luascriptfunctions::time_advancedTime(L);
+    luascriptfunctions::time_setTime(L);
+}
+
+void Time::setTimeAbsoluteFromProfile(const std::string& setTime) {
+    ghoul::lua::LuaState L(ghoul::lua::LuaState::IncludeStandardLibrary::Yes);
+
+    ghoul::lua::push(L, setTime);
+    luascriptfunctions::time_setTime(L);
+}
+
 scripting::LuaLibrary Time::luaLibrary() {
     return {
         "time",
@@ -175,20 +192,21 @@ scripting::LuaLibrary Time::luaLibrary() {
                 &luascriptfunctions::time_togglePause,
                 {},
                 "",
-                "Toggles the pause function, i.e. temporarily setting the delta time to 0"
-                " and restoring it afterwards"
+                "Toggles the pause function, i.e. temporarily setting the delta time to "
+                "0 and restoring it afterwards"
             },
             {
                 "interpolateTime",
                 &luascriptfunctions::time_interpolateTime,
                 {},
                 "{number, string} [, number]",
-                "Sets the current simulation time to the "
-                "specified value. If the parameter is a number, the value is the number "
+                "Sets the current simulation time to the specified value. "
+                "If the first parameter is a number, the target is the number "
                 "of seconds past the J2000 epoch. If it is a string, it has to be a "
-                "valid ISO 8601-like date string of the format YYYY-MM-DDTHH:MN:SS. "
-                "Note: providing time zone using the Z format is not supported. UTC is "
-                "assumed."
+                "valid ISO 8601-like date string of the format YYYY-MM-DDTHH:MN:SS "
+                "(Note: providing time zone using the Z format is not supported. UTC is "
+                "assumed). If a second input value is given, the interpolation is done "
+                "over the specified number of seconds."
             },
             {
                 "interpolateTimeRelative",
@@ -263,6 +281,15 @@ scripting::LuaLibrary Time::luaLibrary() {
                 "Toggles the pause function, i.e. temporarily setting the delta time to 0"
                 " and restoring it afterwards. If an input value is given, the "
                 "interpolation is done over the specified number of seconds."
+            },
+            {
+                "pauseToggleViaKeyboard",
+                &luascriptfunctions::time_pauseToggleViaKeyboard,
+                {},
+                "",
+                "Toggles the pause function from a keypress. This function behaves like"
+                " interpolateTogglePause during normal mode, and behaves like"
+                " sessionRecording.pausePlayback when playing-back a recording."
             },
             {
                 "currentTime",

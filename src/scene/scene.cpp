@@ -24,16 +24,18 @@
 
 #include <openspace/scene/scene.h>
 
+#include <openspace/camera/camera.h>
 #include <openspace/engine/globals.h>
 #include <openspace/engine/globalscallbacks.h>
 #include <openspace/engine/windowdelegate.h>
+#include <openspace/interaction/sessionrecording.h>
 #include <openspace/query/query.h>
 #include <openspace/rendering/renderengine.h>
 #include <openspace/scene/scenegraphnode.h>
 #include <openspace/scene/scenelicensewriter.h>
 #include <openspace/scene/sceneinitializer.h>
 #include <openspace/scripting/lualibrary.h>
-#include <openspace/util/camera.h>
+#include <openspace/scripting/scriptengine.h>
 #include <openspace/util/updatestructures.h>
 #include <ghoul/opengl/programobject.h>
 #include <ghoul/logging/logmanager.h>
@@ -473,8 +475,17 @@ SceneGraphNode* Scene::loadNode(const ghoul::Dictionary& nodeDictionary) {
     return rawNodePointer;
 }
 
+std::chrono::steady_clock::time_point Scene::currentTimeForInterpolation() {
+    if (global::sessionRecording->isSavingFramesDuringPlayback()) {
+        return global::sessionRecording->currentPlaybackInterpolationTime();
+    }
+    else {
+        return std::chrono::steady_clock::now();
+    }
+}
+
 void Scene::addPropertyInterpolation(properties::Property* prop, float durationSeconds,
-                             ghoul::EasingFunction easingFunction)
+                                     ghoul::EasingFunction easingFunction)
 {
     ghoul_precondition(prop != nullptr, "prop must not be nullptr");
     ghoul_precondition(durationSeconds > 0.f, "durationSeconds must be positive");
@@ -495,9 +506,10 @@ void Scene::addPropertyInterpolation(properties::Property* prop, float durationS
         ghoul::easingFunction<float>(easingFunction);
 
     // First check if the current property already has an interpolation information
+    std::chrono::steady_clock::time_point now = currentTimeForInterpolation();
     for (PropertyInterpolationInfo& info : _propertyInterpolationInfos) {
         if (info.prop == prop) {
-            info.beginTime = std::chrono::steady_clock::now();
+            info.beginTime = now;
             info.durationSeconds = durationSeconds;
             info.easingFunction = func;
             // If we found it, we can break since we make sure that each property is only
@@ -508,7 +520,7 @@ void Scene::addPropertyInterpolation(properties::Property* prop, float durationS
 
     PropertyInterpolationInfo i = {
         prop,
-        std::chrono::steady_clock::now(),
+        now,
         durationSeconds,
         func
     };
@@ -544,8 +556,7 @@ void Scene::updateInterpolations() {
 
     using namespace std::chrono;
 
-    auto now = steady_clock::now();
-
+    steady_clock::time_point now = currentTimeForInterpolation();
     // First, let's update the properties
     for (PropertyInterpolationInfo& i : _propertyInterpolationInfos) {
         long long usPassed = duration_cast<std::chrono::microseconds>(
@@ -590,6 +601,52 @@ void Scene::addInterestingTime(InterestingTime time) {
 
 const std::vector<Scene::InterestingTime>& Scene::interestingTimes() const {
     return _interestingTimes;
+}
+
+void Scene::setPropertiesFromProfile(const Profile& p) {
+    ghoul::lua::LuaState L(ghoul::lua::LuaState::IncludeStandardLibrary::Yes);
+
+    for (const Profile::Property& prop : p.properties) {
+        std::string uriOrRegex = prop.name;
+        std::string groupName;
+        if (doesUriContainGroupTag(uriOrRegex, groupName)) {
+            // Remove group name from start of regex and replace with '*'
+            uriOrRegex = removeGroupNameFromUri(uriOrRegex);
+        }
+        ghoul::lua::push(L, uriOrRegex);
+        ghoul::lua::push(L, 0.0);
+        // Later functions expect the value to be at the last position on the stack
+        propertyPushValueFromProfileToLuaState(L, prop.value);
+
+        applyRegularExpression(
+            L,
+            uriOrRegex,
+            allProperties(),
+            0.0,
+            groupName,
+            ghoul::EasingFunction::Linear
+        );
+        //Clear lua state stack
+        lua_settop(L, 0);
+    }
+}
+
+void propertyPushValueFromProfileToLuaState(ghoul::lua::LuaState& L,
+                                            const std::string& value)
+{
+    if (luascriptfunctions::isBoolValue(value)) {
+        ghoul::lua::push(L, (value == "true") ? true : false);
+    }
+    else if (luascriptfunctions::isFloatValue(value)) {
+        ghoul::lua::push(L, std::stof(value));
+    }
+    else {
+        std::string stringRepresentation = value;
+        if (value.compare("nil") != 0) {
+            stringRepresentation = "[[" + stringRepresentation + "]]";
+        }
+        ghoul::lua::push(L, stringRepresentation);
+    }
 }
 
 scripting::LuaLibrary Scene::luaLibrary() {
@@ -706,6 +763,20 @@ scripting::LuaLibrary Scene::luaLibrary() {
                 "Adds an interesting time to the current scene. The first argument is "
                 "the name of the time and the second argument is the time itself in the "
                 "format YYYY-MM-DDThh:mm:ss.uuu"
+            },
+            {
+                "worldPosition",
+                &luascriptfunctions::worldPosition,
+                {},
+                "string",
+                "Returns the world position of the scene graph node with the given string as identifier"
+            },
+            {
+                "worldRotation",
+                & luascriptfunctions::worldRotation,
+                {},
+                "string",
+                "Returns the world rotation matrix of the scene graph node with the given string as identifier"
             }
         }
     };

@@ -33,6 +33,14 @@
 #include "scriptscheduler_lua.inl"
 
 namespace {
+    constexpr openspace::properties::Property::PropertyInfo EnabledInfo = {
+        "EnabledInfo",
+        "Enabled",
+        "This enables or disables the ScriptScheduler. If disabled, no scheduled scripts "
+        "will be executed. If enabled, scheduled scripts will be executed at their given "
+        "time as normal."
+    };
+
     struct [[codegen::Dictionary(ScheduledScript)]] Parameters {
         // The time at which, when the in game time passes it, the two scripts will
         // be executed. If the traversal is forwards (towards + infinity), the
@@ -40,7 +48,7 @@ namespace {
         // executed instead
         std::string time;
 
-        // The Lua script that will be executed when the specified time is passed 
+        // The Lua script that will be executed when the specified time is passed
         // independent of its direction. This script will be executed before the
         // specific scripts if both versions are specified
         std::optional<std::string> script;
@@ -62,12 +70,15 @@ documentation::Documentation ScriptScheduler::Documentation() {
     // @TODO (abock, 2021-03-25)  This is not really correct. This function currently
     // returns the documentation for the ScheduledScript, not for the ScriptScheduler
     // itself. This should be cleaned up a bit
-    documentation::Documentation doc = codegen::doc<Parameters>();
-    doc.id = "core_scheduledscript";
-    return doc;
+    return codegen::doc<Parameters>("core_scheduledscript");
 }
 
-using namespace openspace::interaction;
+ScriptScheduler::ScriptScheduler()
+    : properties::PropertyOwner({ "ScriptScheduler" })
+    , _enabled(EnabledInfo, true)
+{
+    addProperty(_enabled);
+}
 
 ScriptScheduler::ScheduledScript::ScheduledScript(const ghoul::Dictionary& dict) {
     const Parameters p = codegen::bake<Parameters>(dict);
@@ -136,7 +147,7 @@ void ScriptScheduler::clearSchedule() {
 std::pair<ScriptScheduler::ScriptIt, ScriptScheduler::ScriptIt>
 ScriptScheduler::progressTo(double newTime)
 {
-    if (newTime == _currentTime) {
+    if (!_enabled || newTime == _currentTime) {
         return { _forwardScripts.end(), _forwardScripts.end() };
     }
 
@@ -186,7 +197,7 @@ ScriptScheduler::progressTo(double newTime)
     }
 }
 
-void ScriptScheduler::setTimeReferenceMode(KeyframeTimeRef refType) {
+void ScriptScheduler::setTimeReferenceMode(interaction::KeyframeTimeRef refType) {
     _timeframeMode = refType;
 }
 
@@ -216,15 +227,15 @@ std::vector<ScriptScheduler::ScheduledScript> ScriptScheduler::allScripts() cons
 }
 
 void ScriptScheduler::setModeApplicationTime() {
-    _timeframeMode = KeyframeTimeRef::Relative_applicationStart;
+    _timeframeMode = interaction::KeyframeTimeRef::Relative_applicationStart;
 }
 
 void ScriptScheduler::setModeRecordedTime() {
-    _timeframeMode = KeyframeTimeRef::Relative_recordedStart;
+    _timeframeMode = interaction::KeyframeTimeRef::Relative_recordedStart;
 }
 
 void ScriptScheduler::setModeSimulationTime() {
-    _timeframeMode = KeyframeTimeRef::Absolute_simTimeJ2000;
+    _timeframeMode = interaction::KeyframeTimeRef::Absolute_simTimeJ2000;
 }
 
 LuaLibrary ScriptScheduler::luaLibrary() {
