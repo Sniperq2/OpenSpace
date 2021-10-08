@@ -26,6 +26,7 @@
 #include <modules/skybrowser/include/wwtdatahandler.h>
  //#include <modules/webbrowser/webbrowsermodule.h>
  //#include <modules/webbrowser/include/screenspacebrowser.h>
+#include <modules/space/speckloader.h>
 #include <openspace/rendering/screenspacerenderable.h>
 #include <openspace/rendering/renderable.h>
 #include <openspace/engine/moduleengine.h>
@@ -35,7 +36,7 @@
 #include <openspace/engine/windowdelegate.h>
 #include <openspace/rendering/renderengine.h>
 #include <openspace/scene/scenegraphnode.h>
-#include <openspace/interaction/navigationhandler.h>
+#include <openspace/navigation/navigationhandler.h>
 #include <openspace/scene/scene.h>
 
 #include <openspace/util/factorymanager.h>
@@ -456,7 +457,7 @@ SkyBrowserModule::SkyBrowserModule()
             }
             // If within solar system and browser is not visible
             else if (_cameraInSolarSystem && !browser->isEnabled()) {
-                browser->property("Enabled")->set(true);
+                //browser->property("Enabled")->set(true);
                 // Select the first 2D browser when moving into the solar system
                 if (browsers.size() != 0) {
                     selectedBrowser = std::begin(browsers)->second->identifier();
@@ -689,7 +690,7 @@ void SkyBrowserModule::place3dBrowser(ImageData& image) {
             "openspace.setPropertyValueSingle('" + rotationUri + "', " + ghoul::to_string(rotation) + ");",
             scripting::ScriptEngine::RemoteScripting::Yes
         );
-        lookAt3dBrowser();
+        //lookAt3dBrowser();
    
     }
 }
@@ -752,7 +753,7 @@ void SkyBrowserModule::rotateCamera(double deltaTime) {
     // Find smallest angle between the two vectors
     double smallestAngle = std::acos(glm::dot(_coordsStartAnimation, _coordsToAnimateTo) / (glm::length(_coordsStartAnimation) * glm::length(_coordsToAnimateTo)));
     // Only keep animating when target is not at final position
-    if (abs(smallestAngle) > 0.0001) {
+    if (abs(smallestAngle) > 0.001) {
         // Calculate rotation this frame
         double rotationAngle = smallestAngle * deltaTime;
         // Create the rotation matrix for local camera space
@@ -824,11 +825,11 @@ std::string SkyBrowserModule::selectedBrowserId() {
 int SkyBrowserModule::loadImages(const std::string& root, const std::string& directory) {
    
     // Load speck files for 3D positions
-    std::filesystem::path globularClusters = absPath("${BASE}/sync/http/digitaluniverse_globularclusters_speck/2/gc.speck");
-    std::filesystem::path openClusters = absPath("${BASE}/sync/http/digitaluniverse_openclusters_speck/2/oc.speck");
+    std::filesystem::path globularClusters = absPath("${SYNC}/http/digitaluniverse_globularclusters_speck/2/gc.speck");
+    std::filesystem::path openClusters = absPath("${SYNC}/http/digitaluniverse_openclusters_speck/2/oc.speck");
 
-    speck::Dataset speckGlobularClusters = speck::loadSpeckFile(globularClusters);
-    speck::Dataset speckOpenClusters = speck::loadSpeckFile(openClusters);
+    speck::Dataset speckGlobularClusters = speck::data::loadFileWithCache(globularClusters);
+    speck::Dataset speckOpenClusters = speck::data::loadFileWithCache(openClusters);
 
     dataHandler->loadSpeckData(speckGlobularClusters);
     dataHandler->loadSpeckData(speckOpenClusters);

@@ -1,7 +1,7 @@
 #include <modules/skybrowser/include/wwtdatahandler.h>
-#include <openspace/interaction/navigationhandler.h>
+#include <openspace/navigation/navigationhandler.h>
 #include <openspace/engine/globals.h>
-#include <openspace/util/camera.h>
+#include <openspace/camera/camera.h>
 #include <cmath> // For atan2
 #include <glm/gtx/string_cast.hpp> // For printing glm data
 #define _USE_MATH_DEFINES
@@ -44,11 +44,12 @@ namespace openspace {
         // WWT messages
         ghoul::Dictionary moveCamera(const glm::dvec2 celestCoords,
             const double fov, const double roll, const bool moveInstantly = true);
+        ghoul::Dictionary hideInterface();
         ghoul::Dictionary loadCollection(const std::string& url);
         ghoul::Dictionary setForeground(const std::string& name);
         ghoul::Dictionary createImageLayer(const std::string& id, const std::string& url);
         ghoul::Dictionary removeImageLayer(const std::string& id);
-        ghoul::Dictionary setLayerOpacity(const std::string& id, double opacity);
+        ghoul::Dictionary setLayerOpacity(const std::string& id, const std::string& opacity);
         ghoul::Dictionary setForegroundOpacity(double val);
         ghoul::Dictionary setLayerOrder(const std::string& id, int order, int version);
     }

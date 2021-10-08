@@ -11,8 +11,8 @@
 #include <openspace/engine/moduleengine.h>
 #include <openspace/rendering/renderengine.h>
 #include <openspace/scripting/scriptengine.h>
-#include <openspace/interaction/navigationhandler.h>
-#include <openspace/util/camera.h>
+#include <openspace/navigation/navigationhandler.h>
+#include <openspace/camera/camera.h>
 #include <openspace/util/distanceconstants.h>
 #include <ghoul/misc/dictionaryluaformatter.h>
 #include <ghoul/filesystem/filesystem.h>
@@ -26,6 +26,8 @@
 #include <sstream>
 #include <thread> 
 #include <limits>
+
+#pragma optimize("", off)
 
 namespace {
 	constexpr const char _loggerCat[] = "SkyBrowserModule";
@@ -48,7 +50,7 @@ namespace openspace::skybrowser::luascriptfunctions {
 
         if (selectedBrowser) {
             // Load image into browser
-            LINFO("Loading image " + image.name);
+            LINFO(i + "Loading image " + image.name);
             selectedBrowser->addSelectedImage(image, i);
 
             ScreenSpaceSkyTarget* selectedTarget = selectedBrowser->getSkyTarget();
@@ -181,6 +183,7 @@ namespace openspace::skybrowser::luascriptfunctions {
         ScreenSpaceSkyBrowser* browser = dynamic_cast<ScreenSpaceSkyBrowser*>(
             global::renderEngine->screenSpaceRenderable(id));
         if (browser && !browser->hasLoadedCollections()) {
+                //browser->sendMessageToWWT(wwtmessage::hideInterface());
                 browser->sendMessageToWWT(wwtmessage::loadCollection(root));
                 browser->setHasLoadedCollections(true);
         }
@@ -301,7 +304,7 @@ namespace openspace::skybrowser::luascriptfunctions {
 
         std::string root = "https://raw.githubusercontent.com/WorldWideTelescope/wwt-web-client/master/assets/webclient-explore-root.wtml";
         std::string hubble = "http://www.worldwidetelescope.org/wwtweb/catalog.aspx?W=hubble";
-        std::string directory = absPath("${MODULE_SKYBROWSER}/WWTimagedata/");
+        std::string directory = absPath("${MODULE_SKYBROWSER}/WWTimagedata/").string();
 
 		// If no data has been loaded yet, download the data from the web!
 		if (module->getWWTDataHandler()->getLoadedImages().size() == 0) {
@@ -531,8 +534,11 @@ namespace openspace::skybrowser::luascriptfunctions {
     int setOpacityOfImageLayer(lua_State* L) {
         ghoul::lua::checkArgumentsAndThrow(L, 3, "lua::setOpacityOfImageLayer");
         const std::string browserId = ghoul::lua::value<std::string>(L, 1);
-        const std::string i = std::to_string(ghoul::lua::value<int>(L, 2));
-        double opacity = ghoul::lua::value<double>(L, 3);
+        LDEBUG("browserId" + browserId);
+        const std::string i = ghoul::lua::value<std::string>(L, 1);
+        LDEBUG("ident" + i);
+        const std::string opacity = ghoul::lua::value<std::string>(L, 1);
+        LDEBUG("opacity" + opacity);
         SkyBrowserModule* module = global::moduleEngine->module<SkyBrowserModule>();
         ghoul::Dictionary message = wwtmessage::setLayerOpacity(i, opacity);
 
@@ -622,7 +628,7 @@ namespace openspace::skybrowser::luascriptfunctions {
         ghoul::lua::checkArgumentsAndThrow(L, 2, "lua::removeSelectedImageInBrowser");
         // Image index
         const int i = ghoul::lua::value<int>(L, 1);
-        const std::string browserId = ghoul::lua::value<std::string>(L, 2);
+        const std::string browserId = ghoul::lua::value<std::string>(L, 1);
         // Get browser
         SkyBrowserModule* module = global::moduleEngine->module<SkyBrowserModule>();
         ImageData& image = module->getWWTDataHandler()->getLoadedImages()[i];

@@ -11,7 +11,7 @@
 #include <openspace/engine/windowdelegate.h>
 #include <openspace/rendering/renderengine.h>
 #include <openspace/engine/moduleengine.h>
-#include <openspace/util/camera.h>
+#include <openspace/camera/camera.h>
 #include <openspace/scene/scene.h>
 #include <ghoul/misc/dictionaryjsonformatter.h> // formatJson
 #include <ghoul/logging/logmanager.h>
@@ -77,7 +77,7 @@ namespace openspace {
         : ScreenSpaceBrowser(dictionary)
         , _browserDimensions(BrowserDimensionInfo, _dimensions, glm::ivec2(0), glm::ivec2(300))
         , _vfieldOfView(ZoomInfo, 10.f, 0.1f, 70.f)
-        , _borderColor(BorderColorInfo, glm::ivec3(rand() % 256, rand() % 256, rand() % 256))
+        , _borderColor(BorderColorInfo, glm::ivec3(245, 245, 245))
         , _skyTargetID(TargetIDInfo)
         , _camIsSyncedWWT(false)
         , _skyTarget(nullptr)
@@ -167,6 +167,8 @@ namespace openspace {
             }
             // Track target
             WWTfollowCamera();
+            //hide interface
+            
         }
     }
 
@@ -348,7 +350,7 @@ namespace openspace {
             _selectedImages.push_front(i);
             // Index of image is used as layer ID as it is unique in the image data set
             sendMessageToWWT(wwtmessage::createImageLayer(std::to_string(i), image.imageUrl));
-            sendMessageToWWT(wwtmessage::setLayerOpacity(std::to_string(i), 1.0));
+            //sendMessageToWWT(wwtmessage::setLayerOpacity(std::to_string(i), "1.0"));
         }
     }
 

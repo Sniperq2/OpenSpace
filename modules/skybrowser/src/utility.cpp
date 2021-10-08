@@ -1,7 +1,7 @@
 
-#include <openspace/interaction/navigationhandler.h>
+#include <openspace/navigation/navigationhandler.h>
 #include <openspace/engine/globals.h>
-#include <openspace/util/camera.h>
+#include <openspace/camera/camera.h>
 #include <modules/skybrowser/include/utility.h>
 #include <cmath> // For atan2
 #include <glm/gtx/string_cast.hpp> // For printing glm data
@@ -131,6 +131,19 @@ namespace openspace::wwtmessage {
         return msg;
     }
 
+    ghoul::Dictionary hideInterface() {
+        using namespace std::string_literals;
+        
+        ghoul::Dictionary settings;
+        settings.setValue("hideAllChrome", true);
+
+        ghoul::Dictionary msg;
+        msg.setValue("event", "modify_settings"s);
+        msg.setValue("settings", settings);
+
+        return msg;
+    }
+
     ghoul::Dictionary loadCollection(const std::string& url) {
         using namespace std::string_literals;
         ghoul::Dictionary msg;
@@ -171,13 +184,13 @@ namespace openspace::wwtmessage {
         return msg;
     }
 
-    ghoul::Dictionary setLayerOpacity(const std::string& imageId, double opacity) {
+    ghoul::Dictionary setLayerOpacity(const std::string& imageId, const std::string& opacity) {
         using namespace std::string_literals;
         ghoul::Dictionary msg;
         msg.setValue("event", "image_layer_set"s);
         msg.setValue("id", imageId);
         msg.setValue("setting", "opacity"s);
-        msg.setValue("value", opacity);
+        msg.setValue("value", stod(opacity));
 
         return msg;
     }
