@@ -59,10 +59,18 @@
     {
       "documentation": "Toggle all planet and moon trails, except the Moon",
       "gui_path": "/JWST",
-      "identifier": "profile.toggel.trails_not_moon",
+      "identifier": "profile.toggle.trails_not_moon",
       "is_local": false,
       "name": "Toggle trails (except Moon)",
       "script": "local list = openspace.getProperty('{planetTrail_solarSystem}.Renderable.Enabled'); for _,v in pairs(list) do openspace.setPropertyValueSingle(v, not openspace.getPropertyValue(v)) end local moonlist = openspace.getProperty('{moonTrail_solarSystem}.Renderable.Enabled') for _,v in pairs(moonlist) do openspace.setPropertyValueSingle(v, not openspace.getPropertyValue(v)) end openspace.setPropertyValueSingle('Scene.MoonTrail.Renderable.Enabled', true)"
+    },
+    {
+      "documentation": "Toggle JWST launch and orbit trails",
+      "gui_path": "/JWST",
+      "identifier": "profile.toggle.jwst_trails",
+      "is_local": false,
+      "name": "Toggle JWST trails",
+      "script": "local list = {'Scene.JWSTTrailLaunch.Renderable.Enabled', 'Scene.JWSTTrailOrbit.Renderable.Enabled'}; for _,v in pairs(list) do openspace.setPropertyValueSingle(v, not openspace.getPropertyValue(v)); end"
     }
   ],
   "additional_scripts": [
@@ -153,8 +161,24 @@
       "key": "M"
     },
     {
+      "action": "jwst.play.backwards",
+      "key": "N"
+    },
+    {
       "action": "jwst.play.clear",
       "key": "B"
+    },
+    {
+      "action": "profile.toggle.trails_not_moon",
+      "key": "G"
+    },
+    {
+      "action": "jwst.toggle.direction",
+      "key": "Y"
+    },
+    {
+      "action": "profile.toggle.jwst_trails",
+      "key": "T"
     }
   ],
   "mark_nodes": [
@@ -183,6 +207,11 @@
       "name": "Scene.MoonTrail.Renderable.Appearance.Fade",
       "type": "setPropertyValueSingle",
       "value": "3.0"
+    },
+    {
+      "name": "Scene.JWSTTrailLaunch.Renderable.Appearance.EnableFade",
+      "type": "setPropertyValueSingle",
+      "value": "false"
     }
   ],
   "time": {
