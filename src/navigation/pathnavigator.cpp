@@ -72,7 +72,8 @@ namespace {
         "triggered once the path has reached its target."
     };
 
-    constexpr const openspace::properties::Property::PropertyInfo MinBoundingSphereInfo = {
+    constexpr const openspace::properties::Property::PropertyInfo MinBoundingSphereInfo =
+    {
         "MinimalValidBoundingSphere",
         "Minimal Valid Bounding Sphere",
         "The minimal allowed value for a bounding sphere, in meters. Used for "
@@ -203,8 +204,10 @@ void PathNavigator::updateCamera(double deltaTime) {
 
         if (_applyIdleBehaviorOnFinish) {
             constexpr const char* ApplyIdleBehaviorScript =
-                "local f = 'NavigationHandler.OrbitalNavigator.IdleBehavior.ApplyIdleBehavior';"
-                "openspace.setPropertyValueSingle(f, true);";
+                "openspace.setPropertyValueSingle("
+                    "'NavigationHandler.OrbitalNavigator.IdleBehavior.ApplyIdleBehavior',"
+                    "true"
+                ");";
 
             global::scriptEngine->queueScript(
                 ApplyIdleBehaviorScript,
@@ -435,12 +438,22 @@ scripting::LuaLibrary PathNavigator::luaLibrary() {
                 "camera is set based on the target node. Either of the optional "
                 "parameters can be left out."
             },
+             {
+                "goToNavigationState",
+                &luascriptfunctions::goToNavigationState,
+                {},
+                "table, [double]",
+                "Create a path to the navigation state described by the input table. "
+                "The optional double specifies the target duration of the motion. Note "
+                "that roll must be included for the target up direction to be taken "
+                "into account."
+            },
             {
-                "generatePath",
-                &luascriptfunctions::generatePath,
+                "createPath",
+                &luascriptfunctions::createPath,
                 {},
                 "table",
-                "Generate the path as described by the lua table input argument"
+                "Create the path as described by the lua table input argument"
             },
         }
     };

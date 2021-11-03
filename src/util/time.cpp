@@ -25,6 +25,7 @@
 #include <openspace/util/time.h>
 
 #include <openspace/engine/globals.h>
+#include <openspace/scene/profile.h>
 #include <openspace/scripting/scriptengine.h>
 #include <openspace/util/memorymanager.h>
 #include <openspace/util/spicemanager.h>
@@ -119,6 +120,22 @@ void Time::ISO8601(char* buffer) const {
     constexpr const int S = sizeof(Format) + 1;
     std::memset(buffer, 0, S);
     SpiceManager::ref().dateFromEphemerisTime(_time, buffer, S, Format);
+}
+
+void Time::setTimeRelativeFromProfile(const std::string& setTime) {
+    ghoul::lua::LuaState L(ghoul::lua::LuaState::IncludeStandardLibrary::Yes);
+
+    luascriptfunctions::time_currentWallTime(L);
+    ghoul::lua::push(L, setTime);
+    luascriptfunctions::time_advancedTime(L);
+    luascriptfunctions::time_setTime(L);
+}
+
+void Time::setTimeAbsoluteFromProfile(const std::string& setTime) {
+    ghoul::lua::LuaState L(ghoul::lua::LuaState::IncludeStandardLibrary::Yes);
+
+    ghoul::lua::push(L, setTime);
+    luascriptfunctions::time_setTime(L);
 }
 
 scripting::LuaLibrary Time::luaLibrary() {
@@ -297,6 +314,14 @@ scripting::LuaLibrary Time::luaLibrary() {
                 "",
                 "Returns the current wall time as an ISO 8601 date string "
                 "(YYYY-MM-DDTHH-MN-SS) in the UTC timezone"
+            },
+            {
+                "currentApplicationTime",
+                &luascriptfunctions::time_currentApplicationTime,
+                {},
+                "",
+                "Returns the current application time as the number of seconds "
+                "since the OpenSpace application started"
             },
             {
                 "advancedTime",

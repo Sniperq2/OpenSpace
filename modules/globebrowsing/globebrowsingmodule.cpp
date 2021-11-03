@@ -30,6 +30,7 @@
 #include <modules/globebrowsing/src/geodeticpatch.h>
 #include <modules/globebrowsing/src/globelabelscomponent.h>
 #include <modules/globebrowsing/src/globetranslation.h>
+#include <modules/globebrowsing/src/globerotation.h>
 #include <modules/globebrowsing/src/layer.h>
 #include <modules/globebrowsing/src/layeradjustment.h>
 #include <modules/globebrowsing/src/layermanager.h>
@@ -274,6 +275,10 @@ void GlobeBrowsingModule::internalInitialize(const ghoul::Dictionary& dict) {
     ghoul_assert(fTranslation, "Translation factory was not created");
     fTranslation->registerClass<globebrowsing::GlobeTranslation>("GlobeTranslation");
 
+    auto fRotation = FactoryManager::ref().factory<Rotation>();
+    ghoul_assert(fRotation, "Rotation factory was not created");
+    fRotation->registerClass<globebrowsing::GlobeRotation>("GlobeRotation");
+
     auto fTileProvider =
         std::make_unique<ghoul::TemplateFactory<tileprovider::TileProvider>>();
     ghoul_assert(fTileProvider, "TileProvider factory was not created");
@@ -401,7 +406,7 @@ scripting::LuaLibrary GlobeBrowsingModule::luaLibrary() const {
         {
             // @TODO (2021-06-23, emmbr) Combine with the above function when the camera
             // paths work really well close to surfaces
-            "flyToGeo", 
+            "flyToGeo",
             &globebrowsing::luascriptfunctions::flyToGeo,
             {},
             "[string], number, number, number [, bool, number]",

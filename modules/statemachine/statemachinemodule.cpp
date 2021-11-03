@@ -69,6 +69,11 @@ void StateMachineModule::initializeStateMachine(const ghoul::Dictionary& states,
     }
 }
 
+void StateMachineModule::deinitializeStateMachine() {
+    _machine.reset();
+    _machine = nullptr;
+}
+
 bool StateMachineModule::hasStateMachine() const {
     return _machine != nullptr;
 }
@@ -149,6 +154,13 @@ scripting::LuaLibrary StateMachineModule::luaLibrary() const {
             "in the list will be used."
         },
         {
+            "destroyStateMachine",
+            &luascriptfunctions::destroyStateMachine,
+            {},
+            "",
+            "Destroys the current state machine and deletes all the memory."
+        },
+        {
             "goToState",
             &luascriptfunctions::goToState,
             {},
@@ -194,7 +206,8 @@ scripting::LuaLibrary StateMachineModule::luaLibrary() const {
             &luascriptfunctions::printCurrentStateInfo,
             {},
             "",
-            "Prints information about the current state and possible transitions to the log."
+            "Prints information about the current state and possible transitions to the "
+            "log."
         },
         {
             "saveToDotFile",

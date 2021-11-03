@@ -26,6 +26,7 @@
 #include <openspace/engine/globals.h>
 #include <openspace/engine/moduleengine.h>
 #include <openspace/navigation/navigationhandler.h>
+#include <openspace/navigation/navigationstate.h>
 #include <openspace/navigation/pathnavigator.h>
 #include <openspace/scene/scenegraphnode.h>
 #include <openspace/scripting/lualibrary.h>
@@ -67,51 +68,8 @@ int stopPath(lua_State* L) {
     return 0;
 }
 
-int handleOptionalGoToParameters(lua_State* L, const int startLocation,
-                                 const int nArguments,
-                                 ghoul::Dictionary& resultInstruction)
-{
-    const bool firstIsNumber = (lua_isnumber(L, startLocation) != 0);
-    const bool firstIsBool = (lua_isboolean(L, startLocation) != 0);
-
-    if (!(firstIsNumber || firstIsBool)) {
-        const char* msg = lua_pushfstring(
-            L,
-            "%s or %s expected, got %s",
-            lua_typename(L, LUA_TNUMBER),
-            lua_typename(L, LUA_TBOOLEAN),
-            luaL_typename(L, -1)
-        );
-        return ghoul::lua::luaError(
-            L, fmt::format("bad argument #{} ({})", startLocation, msg)
-        );
-    }
-
-    int location = startLocation;
-
-    if (firstIsBool) {
-        const bool useUpFromTarget = (lua_toboolean(L, location) == 1);
-        resultInstruction.setValue("UseTargetUpDirection", useUpFromTarget);
-
-        if (nArguments > startLocation) {
-            location++;
-        }
-    }
-
-    if (firstIsNumber || nArguments > startLocation) {
-        double duration = ghoul::lua::value<double>(L, location);
-        if (duration <= Epsilon) {
-            lua_settop(L, 0);
-            return ghoul::lua::luaError(L, "Duration must be larger than zero.");
-        }
-        resultInstruction.setValue("Duration", duration);
-    }
-
-    return 0;
-}
-
 int goTo(lua_State* L) {
-    int nArguments = ghoul::lua::checkArgumentsAndThrow(L, { 1, 3 }, "lua::goTo");
+    ghoul::lua::checkArgumentsAndThrow(L, { 1, 3 }, "lua::goTo");
     auto [nodeIdentifier, useUpFromTargetOrDuration, duration] = ghoul::lua::values<
         std::string, std::optional<std::variant<bool, double>>, std::optional<double>
     >(L);
@@ -128,9 +86,8 @@ int goTo(lua_State* L) {
         return ghoul::lua::luaError(L, "Unknown node name: " + nodeIdentifier);
     }
 
-    using namespace std::string_literals;
     ghoul::Dictionary insDict;
-    insDict.setValue("TargetType", "Node"s);
+    insDict.setValue("TargetType", std::string("Node"));
     insDict.setValue("Target", nodeIdentifier);
     if (useUpFromTargetOrDuration.has_value()) {
         if (std::holds_alternative<bool>(*useUpFromTargetOrDuration)) {
@@ -164,10 +121,10 @@ int goTo(lua_State* L) {
 }
 
 int goToHeight(lua_State* L) {
-    int nArguments = ghoul::lua::checkArgumentsAndThrow(L, { 2, 4 }, "lua::goToHeight");
+    ghoul::lua::checkArgumentsAndThrow(L, { 2, 4 }, "lua::goToHeight");
     auto [nodeIdentifier, height, useUpFromTargetOrDuration, duration] =
         ghoul::lua::values<
-            std::string, double, std::optional<std::variant<bool, double>>, 
+            std::string, double, std::optional<std::variant<bool, double>>,
             std::optional<double>
         >(L);
 
@@ -176,9 +133,8 @@ int goToHeight(lua_State* L) {
         return ghoul::lua::luaError(L, "Unknown node name: " + nodeIdentifier);
     }
 
-    using namespace std::string_literals;
     ghoul::Dictionary insDict;
-    insDict.setValue("TargetType", "Node"s);
+    insDict.setValue("TargetType", std::string("Node"));
     insDict.setValue("Target", nodeIdentifier);
     insDict.setValue("Height", height);
     if (useUpFromTargetOrDuration.has_value()) {
@@ -213,8 +169,47 @@ int goToHeight(lua_State* L) {
     return 0;
 }
 
-int generatePath(lua_State* L) {
-    ghoul::lua::checkArgumentsAndThrow(L, 1, "lua::generatePath");
+int goToNavigationState(lua_State* L) {
+    ghoul::lua::checkArgumentsAndThrow(L, { 1, 2 }, "lua::goToNavigationState");
+    auto [navigationState, duration] =
+        ghoul::lua::values<ghoul::Dictionary, std::optional<double>>(L);
+
+    try {
+        openspace::documentation::testSpecificationAndThrow(
+            interaction::NavigationState::Documentation(),
+            navigationState,
+            "NavigationState"
+        );
+    }
+    catch (documentation::SpecificationError& e) {
+        LERRORC("goToNavigationState", ghoul::to_string(e.result));
+        return ghoul::lua::luaError(
+            L, fmt::format("Unable to create a path: {}", e.what())
+        );
+    }
+
+    ghoul::Dictionary instruction;
+    instruction.setValue("TargetType", std::string("NavigationState"));
+    instruction.setValue("NavigationState", navigationState);
+
+    if (duration.has_value()) {
+        double d = *duration;
+        if (d <= Epsilon) {
+            return ghoul::lua::luaError(L, "Duration must be larger than zero");
+        }
+        instruction.setValue("Duration", d);
+    }
+
+    global::navigationHandler->pathNavigator().createPath(instruction);
+
+    if (global::navigationHandler->pathNavigator().hasCurrentPath()) {
+        global::navigationHandler->pathNavigator().startPath();
+    }
+    return 0;
+}
+
+int createPath(lua_State* L) {
+    ghoul::lua::checkArgumentsAndThrow(L, 1, "lua::createPath");
     ghoul::Dictionary dictionary = ghoul::lua::value<ghoul::Dictionary>(L);
 
     global::navigationHandler->pathNavigator().createPath(dictionary);

@@ -30,6 +30,7 @@
 #include <openspace/interaction/keybindingmanager.h>
 #include <openspace/interaction/sessionrecording.h>
 #include <openspace/network/parallelpeer.h>
+#include <openspace/scripting/scriptscheduler.h>
 #include <openspace/util/keys.h>
 #include <openspace/util/timeline.h>
 #include <ghoul/logging/logmanager.h>
@@ -405,6 +406,7 @@ void TimeManager::setTimeNextFrame(Time t) {
     _shouldSetTime = true;
     _timeNextFrame = std::move(t);
     clearKeyframes();
+    global::scriptScheduler->setCurrentTime(t.j2000Seconds());
 }
 
 void TimeManager::setDeltaTime(double deltaTime) {
@@ -866,6 +868,28 @@ double TimeManager::previousApplicationTimeForInterpolation() const {
     // Using the previous frame render time fixes this problem. This doesn't adversely
     // affect playback without frames.
     return _previousApplicationTime;
+}
+
+void TimeManager::setTimeFromProfile(const Profile& p) {
+    Time t;
+
+    if (p.time.has_value()) {
+        switch (p.time.value().type) {
+        case Profile::Time::Type::Relative:
+            t.setTimeRelativeFromProfile(p.time.value().value);
+            break;
+
+        case Profile::Time::Type::Absolute:
+            t.setTimeAbsoluteFromProfile(p.time.value().value);
+            break;
+
+        default:
+            throw ghoul::MissingCaseException();
+        }
+    }
+    else {
+        throw ghoul::RuntimeError("No 'time' entry exists in the startup profile");
+    }
 }
 
 } // namespace openspace

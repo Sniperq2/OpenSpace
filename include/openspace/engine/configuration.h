@@ -89,6 +89,7 @@ struct Configuration {
 
     bool isCheckingOpenGLState = false;
     bool isLoggingOpenGLCalls = false;
+    bool isPrintingEvents = false;
 
     float shutdownCountdown = 0.f;
 
@@ -131,7 +132,6 @@ struct Configuration {
     HTTPProxy httpProxy;
 
     // Values not read from the openspace.cfg file
-    bool usingProfile = false;
     std::string sgctConfigNameInitialized;
 
     static documentation::Documentation Documentation;

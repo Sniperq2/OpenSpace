@@ -27,6 +27,9 @@
 #include <openspace/scene/scenegraphnode.h>
 #include <openspace/util/updatestructures.h>
 #include <openspace/query/query.h>
+#include <openspace/engine/globals.h>
+#include <openspace/events/event.h>
+#include <openspace/events/eventengine.h>
 #include <ghoul/logging/logmanager.h>
 #include <ghoul/misc/easing.h>
 #include <glm/gtx/rotate_vector.hpp>
@@ -310,7 +313,8 @@ OrbitalNavigator::IdleBehavior::IdleBehavior()
     addProperty(apply);
     chosenBehavior.addOptions({
         { IdleBehavior::Behavior::Orbit, "Orbit" },
-        { IdleBehavior::Behavior::OrbitAtConstantLat, "OrbitAtConstantLatitude" }
+        { IdleBehavior::Behavior::OrbitAtConstantLat, "OrbitAtConstantLatitude" },
+        { IdleBehavior::Behavior::OrbitAroundUp, "OrbitAroundUp" }
     });
     chosenBehavior = IdleBehavior::Behavior::Orbit;
     addProperty(chosenBehavior);
@@ -352,7 +356,12 @@ OrbitalNavigator::OrbitalNavigator()
         }
         SceneGraphNode* node = sceneGraphNode(_anchor.value());
         if (node) {
+            const SceneGraphNode* previousAnchor = _anchorNode;
             setAnchorNode(node);
+            global::eventEngine->publishEvent<events::EventFocusNodeChanged>(
+                previousAnchor,
+                node
+            );
         }
         else {
             LERROR(fmt::format(
@@ -454,7 +463,9 @@ OrbitalNavigator::OrbitalNavigator()
     addPropertySubOwner(_linearFlight);
     addPropertySubOwner(_idleBehavior);
 
-    _idleBehaviorDampenInterpolator.setTransferFunction(ghoul::quadraticEaseInOut<double>);
+    _idleBehaviorDampenInterpolator.setTransferFunction(
+        ghoul::quadraticEaseInOut<double>
+    );
     _idleBehavior.dampenInterpolationTime.onChange([&]() {
         _idleBehaviorDampenInterpolator.setInterpolationTime(
             _idleBehavior.dampenInterpolationTime
@@ -803,8 +814,14 @@ glm::dvec3 OrbitalNavigator::cameraToSurfaceVector(const glm::dvec3& cameraPos,
 void OrbitalNavigator::setFocusNode(const SceneGraphNode* focusNode,
                                     bool resetVelocitiesOnChange)
 {
+    const SceneGraphNode* previousAnchor = _anchorNode;
     setAnchorNode(focusNode, resetVelocitiesOnChange);
     setAimNode(nullptr);
+
+    global::eventEngine->publishEvent<events::EventFocusNodeChanged>(
+        previousAnchor,
+        focusNode
+    );
 }
 
 void OrbitalNavigator::setFocusNode(const std::string& focusNode, bool) {
@@ -952,8 +969,8 @@ bool OrbitalNavigator::shouldFollowAnchorRotation(const glm::dvec3& cameraPositi
 
     const double distanceToCamera =
         glm::distance(cameraPosition, _anchorNode->worldPosition());
-
-    return distanceToCamera < maximumDistanceForRotation;
+    bool shouldFollow = distanceToCamera < maximumDistanceForRotation;
+    return shouldFollow;
 }
 
 bool OrbitalNavigator::followingAnchorRotation() const {
@@ -1614,9 +1631,21 @@ void OrbitalNavigator::applyIdleBehavior(double deltaTime, glm::dvec3& position,
         case IdleBehavior::Behavior::Orbit:
             orbitAnchor(deltaTime, position, globalRotation, speedScale);
             break;
-        case IdleBehavior::Behavior::OrbitAtConstantLat:
-            orbitAtConstantLatitude(deltaTime, position, globalRotation, speedScale);
+        case IdleBehavior::Behavior::OrbitAtConstantLat: {
+            // Assume that "north" coincides with the local z-direction
+            // @TODO (2021-07-09, emmbr) Make each scene graph node aware of its own
+            // north/up, so that we can query this information rather than assuming it.
+            // The we could also combine this idle behavior with the next
+            const glm::dvec3 north = glm::dvec3(0.0, 0.0, 1.0);
+            orbitAroundAxis(north, deltaTime, position, globalRotation, speedScale);
             break;
+        }
+        case IdleBehavior::Behavior::OrbitAroundUp: {
+            // Assume that "up" coincides with the local y-direction
+            const glm::dvec3 up = glm::dvec3(0.0, 1.0, 0.0);
+            orbitAroundAxis(up, deltaTime, position, globalRotation, speedScale);
+            break;
+        }
         default:
             throw ghoul::MissingCaseException();
     }
@@ -1645,24 +1674,19 @@ void OrbitalNavigator::orbitAnchor(double deltaTime, glm::dvec3& position,
     position += rotationDiffVec3;
 }
 
-void OrbitalNavigator::orbitAtConstantLatitude(double deltaTime, glm::dvec3& position,
-                                               glm::dquat& globalRotation,
-                                               double speedScale)
+void OrbitalNavigator::orbitAroundAxis(const glm::dvec3 axis, double deltaTime,
+                                       glm::dvec3& position, glm::dquat& globalRotation,
+                                       double speedScale)
 {
     ghoul_assert(_anchorNode != nullptr, "Node to orbit must be set!");
 
     const glm::dmat4 modelTransform = _anchorNode->modelTransform();
+    const glm::dvec3 axisInWorldCoords =
+        glm::dmat3(modelTransform) * glm::normalize(axis);
 
-    // Assume north coincides with the local z-direction
-    // @TODO (2021-07-09, emmbr) Make each scene graph node aware of its own north/up, so
-    // that we can query this information rather than assuming it
-    const glm::dvec3 northInWorldCoords =
-        glm::dmat3(modelTransform) * glm::dvec3(0.0, 0.0, 1.0);
-
-    // Compute rotation around the north axis to be applied
+    // Compute rotation to be applied around the axis
     double angle = deltaTime * speedScale;
-    const glm::dquat spinRotation =
-        glm::angleAxis(angle, glm::normalize(northInWorldCoords));
+    const glm::dquat spinRotation = glm::angleAxis(angle, axisInWorldCoords);
 
     // Rotate the position vector from the center to camera and update position
     const glm::dvec3 anchorCenterToCamera = position - _anchorNode->worldPosition();

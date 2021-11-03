@@ -59,7 +59,8 @@ namespace {
         // The desired duration traversing the specified path segment should take
         std::optional<float> duration;
 
-        // (Node): The target node of the camera path. Not optional for 'Node' instructions
+        // (Node): The target node of the camera path. Not optional for 'Node'
+        // instructions
         std::optional<std::string> target;
 
         // (Node): An optional position in relation to the target node, in model
@@ -217,11 +218,13 @@ glm::dquat Path::lookAtTargetsRotation(double t) const {
     }
 
     // Handle up vector separately
+    // @TODO (2021-09-06 emmbr) This actually does not interpolate the up vector of the
+    // camera, but just the "hint" up vector for the lookAt. This leads to fast rolling
+    // when the up vector gets close to the camera's forward vector. Should be improved
+    // so any rolling is spread out over the entire motion instead
+    double tUp = ghoul::sineEaseInOut(t);
     glm::dvec3 startUp = _start.rotation() * glm::dvec3(0.0, 1.0, 0.0);
     glm::dvec3 endUp = _end.rotation() * glm::dvec3(0.0, 1.0, 0.0);
-
-    double tUp = helpers::shiftAndScale(t, t1, t2);
-    tUp = ghoul::sineEaseInOut(tUp);
     glm::dvec3 up = ghoul::interpolateLinear(tUp, startUp, endUp);
 
     return ghoul::lookAtQuaternion(_curve->positionAt(t), lookAtPos, up);
@@ -269,9 +272,11 @@ double Path::speedAlongPath(double traveledDistance) const {
         speed *= remainingDistance / closeUpDistance + 0.01;
     }
 
-    // TODO: also dampen speed based on curvature, or make sure the curve has a rounder shape
+    // TODO: also dampen speed based on curvature, or make sure the curve has a rounder
+    //       shape
 
-    // TODO: check for when path is shorter than the starUpDistance or closeUpDistance variables
+    // TODO: check for when path is shorter than the starUpDistance or closeUpDistance
+    //       variables
 
     return _speedFactorFromDuration * speed;
 }
@@ -289,7 +294,12 @@ SceneGraphNode* findNodeNearTarget(const SceneGraphNode* node) {
         global::navigationHandler->pathNavigator().relevantNodes();
 
     for (SceneGraphNode* n : relevantNodes) {
-        if (n->identifier() == node->identifier()) {
+        bool isSame = (n->identifier() == node->identifier());
+        // If the nodes are in the very same position, they are probably representing
+        // the same object
+        isSame |= glm::distance(n->worldPosition(), node->worldPosition()) < Epsilon;
+
+        if (isSame) {
             continue;
         }
 
@@ -377,7 +387,9 @@ Waypoint computeWaypointFromNodeInfo(const NodeInfo& info, const Waypoint& start
     if (info.position.has_value()) {
         // The position in instruction is given in the targetNode's local coordinates.
         // Convert to world coordinates
-        targetPos = glm::dvec3(targetNode->modelTransform() * glm::dvec4(*info.position, 1.0));
+        targetPos = glm::dvec3(
+            targetNode->modelTransform() * glm::dvec4(*info.position, 1.0)
+        );
     }
     else {
         const double radius = Waypoint::findValidBoundingSphere(targetNode);
