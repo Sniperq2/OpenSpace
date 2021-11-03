@@ -6,6 +6,8 @@
 
 import pandas as pd
 import numpy as np
+import os
+import astropy
 from datetime import datetime
 
 NEW_API = 'https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query='
@@ -14,6 +16,11 @@ NEW_API = 'https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query='
 
 DATA_FOLDER = '../data/'
 dataFileName = DATA_FOLDER + 'aggregated_data.csv'
+
+# Create data folder if not exists
+if not os.path.exists(DATA_FOLDER):
+    os.makedirs(DATA_FOLDER)
+    print('Created data folder')
 
 ###
 ## Download new confirmed planets
@@ -45,7 +52,7 @@ where0 = 'where+default_flag=0+and+tran_flag=1+and+upper%28soltype%29+like+%27%2
 full0 = NEW_API + 'select+' + columns + '+from+ps+' + where0 + '&format=csv'
 df1 = pd.read_csv(full0)
 
-with open(DATA_FOLDER + 'last_update_time.txt', 'w') as ff:
+with open(DATA_FOLDER + 'last_update_time.txt', 'w+') as ff:
     ff.write(str(datetime.now()))
 
 ###
