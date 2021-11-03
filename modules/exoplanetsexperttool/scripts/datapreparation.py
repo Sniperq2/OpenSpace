@@ -1,5 +1,5 @@
-# Based on implementation by Sebastian Zieba
-# https://github.com/sebastian-zieba/TSM
+# Based on implementation by Sebastian Zieba: https://github.com/sebastian-zieba/TSM
+# 2021-11-03    Main (updated) repo: https://github.com/lkreidberg/TSM 
 #
 # Downloads confirmed planet table from NExSci, aggregates data for ESM and TSM metrics, and saves 
 # the resulting data in a csv file
@@ -7,8 +7,20 @@
 import pandas as pd
 import numpy as np
 import os
-import astropy
 from datetime import datetime
+from astropy import constants as const
+
+def Planck_ratio(depth, Ts, Tp, lam):
+    h = const.h.value
+    c = const.c.value
+    kB = const.k_B.value
+    res = depth * 1e6 * (np.exp(h * c / (lam * kB * Ts)) - 1)/ (np.exp(h * c / (lam * kB * Tp)) - 1)
+    return res
+
+Rjup = const.R_jup/const.R_earth
+Mjup = const.M_jup/const.M_earth
+ReRs = const.R_earth/const.R_sun
+MeMs = const.M_earth/const.M_sun
 
 NEW_API = 'https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query='
 # The "exoplanets" table includes all confirmed planets and hosts in the
@@ -60,13 +72,6 @@ with open(DATA_FOLDER + 'last_update_time.txt', 'w+') as ff:
 ###
 print("Aggregating data and computing additional parameters...")
 
-# useful constants
-from astropy import constants as const
-Rjup = const.R_jup/const.R_earth
-Mjup = const.M_jup/const.M_earth
-ReRs = const.R_earth/const.R_sun
-MeMs = const.M_earth/const.M_sun
-
 # concatenates data sets
 df = pd.concat([df0,df1])
 
@@ -82,27 +87,25 @@ df['dt_obj'] = pd.to_datetime(df['pl_pubdate'], format="%Y-%m", errors='raise')
 
 df = df.sort_values(by='dt_obj', ascending=False)
 
-## Build up a filter to kill off unwanted results
-# Finding the Stassun paper
+## Build up a filter to remove results from the Stassun et al. 2017 paper, 
+#  which are often more recent but less precise than previous publications
 df.loc[df['pl_refname'].str.contains("STASSUN"), 'pl_refname'].unique()
-
 data_filter = (
     (df['pl_refname'] != '<a refstr=STASSUN_ET_AL__2017 href=https://ui.adsabs.harvard.edu/abs/2017AJ....153..136S/abstract target=ref>Stassun et al. 2017</a>')
 )
 
-# ## Groupby planet name and grab the most recent record
+# ## Group by planet name and grab the most recent record
 cols = df.columns.to_list()[1:]
 agg_dict = dict(zip(cols, ['first'] * len(cols)))
 
 # aggregate
 df = df[data_filter].groupby('pl_name', as_index = False).agg(agg_dict)
-# df = df.groupby('pl_name', as_index = False).agg(agg_dict)
 
 # fill in columns where mass or radius are only in Jupiter units
 df.pl_rade.fillna(df.pl_radj*Rjup, inplace=True)
 df.pl_bmasse.fillna(df.pl_bmassj*Mjup, inplace=True)
 
-# ## Initialize new column for aggregate temperature.
+# ## Initialize new column for aggregate temperature
 # Try to use as few columns in the data as possible:
 # first populate with insolation flux
 df['pl_Teq'] = 278.*(df['pl_insol'])**0.25
@@ -113,6 +116,7 @@ df.pl_Teq.fillna(1/(np.sqrt(2*df['pl_ratdor']))*df['st_teff'], inplace=True)
 # if a/Rs is unavailable, calculate it from a [AU] and Rs [Rsun]
 df.pl_Teq.fillna(1/(np.sqrt(2*215.*df['pl_orbsmax']/df['st_rad']))*df['st_teff'], inplace=True)
 
+# fill rprs if not given
 df['pl_ratror'] = ReRs*df['pl_rade']/df['st_rad']
 # initialize new column for (Rp/Rs)**2
 df['pl_rprs2'] = df['pl_ratror']**2
@@ -128,21 +132,17 @@ df.loc[(df['pl_rade'] <= 2.75)&(df['pl_rade'] > 1.5), 'scale'] = 1.26
 print("Computing TSM")
 df['TSM'] = df['pl_rade'] * df['pl_rprs2']/(ReRs**2) * df['pl_Teq']/df['pl_bmasse'] * 10.**(-0.2*df['sy_jmag']) * df['scale']
 
-# TODO: determine if efficiency and noise is relevant
-# df['efficiency'] = 1
-# df.loc[df['sy_jmag'] <= 8.8, 'efficiency'] = (1.375*df['sy_jmag']**2 - 1.214*df['sy_jmag'] - 26.68)/64.58
-# df.loc[df['sy_jmag'] <= 5., 'efficiency'] = 0.3
+#calculates observational efficiency for HST (accounting for brightness of host star)
+df['efficiency'] = 1
+df.loc[df['sy_jmag'] <= 8.8, 'efficiency'] = (1.375*df['sy_jmag']**2 - 1.214*df['sy_jmag'] - 26.68)/64.58
+df.loc[df['sy_jmag'] <= 5., 'efficiency'] = 0.3
 
-# df['efficiency_kmag'] = 1
-# df.loc[df['sy_kmag'] <= 8.8, 'efficiency_kmag'] = (1.375*df['sy_kmag']**2 - 1.214*df['sy_kmag'] - 26.68)/64.58
-# df.loc[df['sy_kmag'] <= 5., 'efficiency_kmag'] = 0.3
-# #correct TSM for observatinoal efficiency with HST/WFC3
-# #df['TSM'] = df['TSM']*np.sqrt(df['efficiency'])
+df['efficiency_kmag'] = 1
+df.loc[df['sy_kmag'] <= 8.8, 'efficiency_kmag'] = (1.375*df['sy_kmag']**2 - 1.214*df['sy_kmag'] - 26.68)/64.58
+df.loc[df['sy_kmag'] <= 5., 'efficiency_kmag'] = 0.3
 
-# noise_ref = 122 #photon noise wasp-103 122 ppm per 103 second exposure
-# kmag_ref = 10.767
-# df['noise'] = noise_ref * (10**(-0.4*(kmag_ref-df['sy_kmag'])))**(1/2)*(1/df['efficiency_kmag'])**(1/2)
-
+# option to correct TSM for observatinoal efficiency with HST/WFC3
+#df['TSM'] = df['TSM']*np.sqrt(df['efficiency'])
 
 # TODO: figure out if needed
 # ## TODO: why are these here and not earlier? If computed earlier they could be used for computation
@@ -152,17 +152,8 @@ df['TSM'] = df['pl_rade'] * df['pl_rprs2']/(ReRs**2) * df['pl_Teq']/df['pl_bmass
 # # Fill insolation if missing: Ts^4/ars^2 * (215^2/5772^4) = Ts^4/ars^2 * 4.166e-11
 # df.pl_insol.fillna(df['st_teff']**4/df['pl_ratdor']**2*4.166e-11, inplace=True)
 
-
-h = const.h.value
-c = const.c.value
-kB = const.k_B.value
-
-def Planck_ratio(Tstar, Tplanet_day, lam):
-    res = (np.exp(h * c / (lam * kB * Tstar)) - 1)/ (np.exp(h * c / (lam * kB * Tplanet_day)) - 1)
-    return res
-
 print("Computing ESM")
-df['ed_ESM'] = df['pl_rprs2'] * 1e6 * Planck_ratio(df['st_teff'], 1.1*df['pl_Teq'], 7.5e-6)
+df['ed_ESM'] = Planck_ratio(df['pl_rprs2'], df['st_teff'], 1.1*df['pl_Teq'], 7.5e-6)
 df['ESM'] = 4.29 * df['ed_ESM'] * 10**(-0.2*df['sy_kmag'])
 
 # TODO: propagate errors, so we get uncertainties for ESM and TSM
