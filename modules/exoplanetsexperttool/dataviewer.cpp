@@ -77,7 +77,7 @@ namespace {
         return ImVec4(v.x, v.y, v.z, v.w);
     }
 
-    // @TODO this could be a temoplated helper function for lists. Used a lot
+    // @TODO this could be a templated helper function for lists. Used a lot
     std::string formatIndicesList(const std::vector<size_t>& indices) {
         std::string result;
         for (size_t i : indices) {
@@ -248,6 +248,13 @@ void DataViewer::initializeRenderables() {
 void DataViewer::render() {
     renderTable();
     ImGui::Spacing();
+
+    // TEST
+    if (_selection.size() > 0) {
+        ImGui::SameLine();
+        renderTSMRadarPlot(_data[_selection[0]]); // For now just the first
+    }
+
     renderScatterPlotAndColormap();
 }
 
@@ -723,6 +730,125 @@ bool DataViewer::renderFilterSettings() {
 
     return filterChanged;
 }
+
+void DataViewer::renderTSMRadarPlot(const ExoplanetItem& item) {
+    if (std::isnan(item.tsm)) {
+        // TODO: do something nice if it is null
+        return;
+    }
+
+    ImPlot::SetNextPlotLimits(-1.4, 1.4, -1.0, 1.2, ImGuiCond_Always);
+    if (ImPlot::BeginPlot("TSM", NULL, NULL, ImVec2(260, 250),
+        ImPlotFlags_Equal | ImPlotFlags_NoMousePos | ImPlotFlags_AntiAliased,
+        ImPlotAxisFlags_NoDecorations, ImPlotAxisFlags_NoDecorations))
+    {
+        int nAxes = 5;
+        float angle = 2.f * IM_PI / static_cast<float>(nAxes); // radians
+
+        // For now, only support float numbers
+        struct Axis {
+            const char* label;
+            glm::vec2 domain;
+            std::function<float(const ExoplanetItem&)> mapping;
+            glm::vec2 dir; // the direction it is rendered in the graph
+        };
+
+        // Create axes (TODO: want to be able to change domain during runtime)
+        std::vector<Axis> axes(nAxes, Axis());
+        axes.reserve(nAxes);
+
+        axes[0].label = "Rp";
+        axes[0].domain = glm::vec2(0.f, 25.f);
+        axes[0].mapping = [](const ExoplanetItem& i) { return i.radius.value; };
+
+        axes[1].label = "Teq";
+        axes[1].domain = glm::vec2(150.f, 2500.f);
+        axes[1].mapping = [](const ExoplanetItem& i) { return i.eqilibriumTemp.value; };
+
+        axes[2].label = "Mp";
+        axes[2].domain = glm::vec2(0.f, 800.f);
+        axes[2].mapping = [](const ExoplanetItem& i) { return i.mass.value; };
+
+        axes[3].label = "Rstar";
+        axes[3].domain = glm::vec2(0.f, 3.f);
+        axes[3].mapping = [](const ExoplanetItem& i) { return i.starRadius.value; };
+
+        axes[4].label = "MagJ";
+        axes[4].domain = glm::vec2(5.f, 15.f);
+        axes[4].mapping = [](const ExoplanetItem& i) { return i.magnitudeJ.value; };
+
+
+
+        //axes[0].label = "Rp^3";
+        //axes[0].domain = glm::vec2(0.f, 25.f * 25.f * 25.f);
+        //axes[0].mapping = [](const ExoplanetItem& i) { return std::pow(i.radius.value, 3.f); };
+
+        //axes[1].label = "Teq";
+        //axes[1].domain = glm::vec2(150.f, 2500.f);
+        //axes[1].mapping = [](const ExoplanetItem& i) { return i.eqilibriumTemp.value; };
+
+        //axes[2].label = "1/Mp";
+        //axes[2].domain = glm::vec2(1/800.f, 1/0.1f);
+        //axes[2].mapping = [](const ExoplanetItem& i) { return 1.f/i.mass.value; };
+
+        //axes[2].label = "1/(Rstar^2)";
+        //axes[3].domain = glm::vec2(1/9.f, 1/0.01f);
+        //axes[3].mapping = [](const ExoplanetItem& i) { return 1.f/std::pow(i.starRadius.value, 2.f); };
+
+        //axes[2].label = "10^(-mj/5)";
+        //axes[4].domain = glm::vec2(5.f, 15.f);
+        //axes[4].mapping = [](const ExoplanetItem& i) { return i.magnitudeJ.value; };
+
+        // Draw axes
+        for (int i = 0; i < nAxes; ++i) {
+            float xs[2] = { 0.0, 0.0 };
+            float ys[2] = { 0.0, 0.0 };
+
+            float x = std::cos(static_cast<float>(i) * angle);
+            float y = std::sin(static_cast<float>(i) * angle);
+
+            // Rotate 90 degrees anticlockwise, to get top axis straight
+            float halfPi = 0.5f * IM_PI;
+            xs[1] = std::cos(halfPi) * x - std::sin(halfPi) * y;
+            ys[1] = std::sin(halfPi) * x - std::cos(halfPi) * y;
+
+            axes[i].dir = { xs[1], ys[1] };
+
+            ImPlot::PlotText(axes[i].label, 1.1f * xs[1], 1.1f * ys[1]);
+
+            ImGui::PushID(i);
+            ImPlot::SetNextLineStyle(ImVec4(0.5, 0.5, 0.5, 1.0), 1.0);
+            ImPlot::PlotLine("##Axis", xs, ys, 2);
+            ImGui::PopID();
+        }
+
+        // Draw line
+        std::vector<float> xs(nAxes + 1, 0.f);
+        std::vector<float> ys(nAxes + 1, 0.f);
+        for (int i = 0; i < nAxes; ++i) {
+            Axis a = axes[i];
+            float value = a.mapping(item);
+            float scaledValue = (value - a.domain.x) / (a.domain.y - a.domain.x);
+            scaledValue = glm::clamp(scaledValue, 0.f, 1.f);
+
+            // Find coordinate corresponding to the value and axis
+            glm::vec2 coord = scaledValue * a.dir;
+            xs[i] = coord.x;
+            ys[i] = coord.y;
+        }
+
+        // Duplicate first point
+        xs[nAxes] = xs[0];
+        ys[nAxes] = ys[0];
+
+        ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle);
+        ImPlot::SetNextLineStyle(ImVec4(0.0, 0.7, 0.7, 1.0), 1.0);
+        ImPlot::PlotLine(item.planetName.c_str(), xs.data(), ys.data(), nAxes + 1);
+
+        ImPlot::EndPlot();
+    }
+}
+
 
 void DataViewer::renderColumnValue(ColumnID column, const char* format,
                                    const ExoplanetItem& item)

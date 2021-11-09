@@ -83,6 +83,8 @@ private:
     // Render filter settings and return true if filtering changed
     bool renderFilterSettings();
 
+    void renderTSMRadarPlot(const ExoplanetItem& item);
+
     void renderColumnValue(ColumnID column, const char* format,
         const ExoplanetItem& item);
 
