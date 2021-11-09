@@ -104,7 +104,7 @@ std::vector<ExoplanetItem> DataLoader::loadData() {
            else if (column == "pl_rade") {
                p.radius.value = data::parseFloatData(data);
            }
-           else if (column == "pl_masse") {
+           else if (column == "pl_bmasse") {
                p.mass.value = data::parseFloatData(data);
            }
            // Orbital properties
