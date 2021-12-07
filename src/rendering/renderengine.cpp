@@ -1060,7 +1060,6 @@ scripting::LuaLibrary RenderEngine::luaLibrary() {
             {
                 "addScreenSpaceRenderable",
                 &luascriptfunctions::addScreenSpaceRenderable,
-                {},
                 "table",
                 "Will create a ScreenSpaceRenderable from a lua Table and add it in the "
                 "RenderEngine"
@@ -1068,7 +1067,6 @@ scripting::LuaLibrary RenderEngine::luaLibrary() {
             {
                 "removeScreenSpaceRenderable",
                 &luascriptfunctions::removeScreenSpaceRenderable,
-                {},
                 "string",
                 "Given a ScreenSpaceRenderable name this script will remove it from the "
                 "renderengine"
@@ -1076,12 +1074,11 @@ scripting::LuaLibrary RenderEngine::luaLibrary() {
             {
                 "takeScreenshot",
                 &luascriptfunctions::takeScreenshot,
-                {},
                 "",
                 "Take a screenshot and return the screenshot number. The screenshot will "
                 "be stored in the ${SCREENSHOTS} folder. "
             }
-        },
+        }
     };
 }
 
@@ -1122,12 +1119,11 @@ void RenderEngine::removeScreenSpaceRenderable(ScreenSpaceRenderable* s) {
     );
 
     if (it != global::screenSpaceRenderables->end()) {
+        global::eventEngine->publishEvent<events::EventScreenSpaceRenderableRemoved>(s);
         s->deinitialize();
         global::screenSpaceRootPropertyOwner->removePropertySubOwner(s);
         global::screenSpaceRenderables->erase(it);
     }
-
-    global::eventEngine->publishEvent<events::EventScreenSpaceRenderableRemoved>(s);
 }
 
 void RenderEngine::removeScreenSpaceRenderable(const std::string& identifier) {

@@ -131,8 +131,7 @@ void NavigationHandler::setCamera(Camera* camera) {
     _orbitalNavigator.setCamera(camera);
 }
 
-void NavigationHandler::setNavigationStateNextFrame(NavigationState state)
-{
+void NavigationHandler::setNavigationStateNextFrame(NavigationState state) {
     _pendingNavigationState = std::move(state);
 }
 
@@ -211,6 +210,7 @@ void NavigationHandler::applyNavigationState(const NavigationState& ns) {
     _camera->setPositionVec3(pose.position);
     _camera->setRotation(pose.rotation);
     _orbitalNavigator.clearPreviousState();
+    _orbitalNavigator.resetNodeMovements();
 }
 
 void NavigationHandler::updateCameraTransitions() {
@@ -396,15 +396,15 @@ NavigationState NavigationHandler::navigationState(
                                                const SceneGraphNode& referenceFrame) const
 {
     const SceneGraphNode* anchor = _orbitalNavigator.anchorNode();
-    const SceneGraphNode* aim = _orbitalNavigator.aimNode();
 
-    if (!aim) {
-        aim = anchor;
+    if (!anchor) {
+        LERROR("No anchor node could be found");
+        return NavigationState();
     }
 
     const glm::dquat invNeutralRotation = glm::quat_cast(glm::lookAt(
         glm::dvec3(0.0),
-        aim->worldPosition() - _camera->positionVec3(),
+        anchor->worldPosition() - _camera->positionVec3(),
         glm::normalize(_camera->lookUpVectorWorldSpace())
     ));
 
@@ -420,15 +420,14 @@ NavigationState NavigationHandler::navigationState(
         glm::inverse(invNeutralRotation) * unroll * _camera->lookUpVectorCameraSpace();
 
     const glm::dmat3 invReferenceFrameTransform =
-        glm::inverse(referenceFrame.worldRotationMatrix());
+        glm::inverse(referenceFrame.modelTransform());
 
     const glm::dvec3 position = invReferenceFrameTransform *
         (glm::dvec4(_camera->positionVec3() - anchor->worldPosition(), 1.0));
 
     return NavigationState(
         _orbitalNavigator.anchorNode()->identifier(),
-        _orbitalNavigator.aimNode() ?
-        _orbitalNavigator.aimNode()->identifier() : "",
+        _orbitalNavigator.aimNode() ? _orbitalNavigator.aimNode()->identifier() : "",
         referenceFrame.identifier(),
         position,
         invReferenceFrameTransform * neutralUp, yaw, pitch
@@ -564,7 +563,6 @@ scripting::LuaLibrary NavigationHandler::luaLibrary() {
             {
                 "getNavigationState",
                 &luascriptfunctions::getNavigationState,
-                {},
                 "[string]",
                 "Return the current navigation state as a lua table. The optional "
                 "argument is the scene graph node to use as reference frame. By default, "
@@ -576,14 +574,12 @@ scripting::LuaLibrary NavigationHandler::luaLibrary() {
             {
                 "setNavigationState",
                 &luascriptfunctions::setNavigationState,
-                {},
                 "table",
                 "Set the navigation state. The argument must be a valid Navigation State."
             },
             {
                 "saveNavigationState",
                 &luascriptfunctions::saveNavigationState,
-                {},
                 "string, [string]",
                 "Save the current navigation state to a file with the path given by the "
                 "first argument. The optoinal second argument is the scene graph node to "
@@ -595,7 +591,6 @@ scripting::LuaLibrary NavigationHandler::luaLibrary() {
             {
                 "loadNavigationState",
                 &luascriptfunctions::loadNavigationState,
-                {},
                 "string",
                 "Load a navigation state from file. The file should be a lua file "
                 "returning the navigation state as a table formatted as a "
@@ -604,21 +599,18 @@ scripting::LuaLibrary NavigationHandler::luaLibrary() {
             {
                 "retargetAnchor",
                 &luascriptfunctions::retargetAnchor,
-                {},
                 "void",
                 "Reset the camera direction to point at the anchor node"
             },
             {
                 "retargetAim",
                 &luascriptfunctions::retargetAim,
-                {},
                 "void",
                 "Reset the camera direction to point at the aim node"
             },
             {
                 "bindJoystickAxis",
                 &luascriptfunctions::bindJoystickAxis,
-                {},
                 "int, axisType [, isInverted, isNormalized]",
                 "Binds the axis identified by the first argument to be used as the type "
                 "identified by the second argument. If 'isInverted' is 'true', the axis "
@@ -628,7 +620,6 @@ scripting::LuaLibrary NavigationHandler::luaLibrary() {
             {
                 "joystickAxis",
                 &luascriptfunctions::joystickAxis,
-                {},
                 "int",
                 "Returns the joystick axis information for the passed axis. The "
                 "information that is returned is the current axis binding as a string, "
@@ -638,7 +629,6 @@ scripting::LuaLibrary NavigationHandler::luaLibrary() {
             {
                 "setAxisDeadZone",
                 &luascriptfunctions::setJoystickAxisDeadzone,
-                {},
                 "int, float",
                 "Sets the deadzone for a particular joystick axis which means that any "
                 "input less than this value is completely ignored."
@@ -646,7 +636,6 @@ scripting::LuaLibrary NavigationHandler::luaLibrary() {
             {
                 "bindJoystickButton",
                 &luascriptfunctions::bindJoystickButton,
-                {},
                 "int, string [, string, bool]",
                 "Binds a Lua script to be executed when the joystick button identified "
                 "by the first argument is triggered. The third argument determines when "
@@ -658,7 +647,6 @@ scripting::LuaLibrary NavigationHandler::luaLibrary() {
             {
                 "clearJoystickButton",
                 &luascriptfunctions::clearJoystickButton,
-                {},
                 "int",
                 "Removes all commands that are currently bound to the button identified "
                 "by the first argument"
@@ -666,7 +654,6 @@ scripting::LuaLibrary NavigationHandler::luaLibrary() {
             {
                 "joystickButton",
                 &luascriptfunctions::joystickButton,
-                {},
                 "int",
                 "Returns the script that is currently bound to be executed when the "
                 "provided button is pressed"
@@ -674,35 +661,30 @@ scripting::LuaLibrary NavigationHandler::luaLibrary() {
             {
                 "addGlobalRotation",
                 &luascriptfunctions::addGlobalRotation,
-                {},
                 "double, double",
                 "Directly adds to the global rotation of the camera"
             },
             {
                 "addLocalRotation",
                 &luascriptfunctions::addLocalRotation,
-                {},
                 "double, double",
                 "Directly adds to the local rotation of the camera"
             },
             {
                 "addTruckMovement",
                 &luascriptfunctions::addTruckMovement,
-                {},
                 "double, double",
                 "Directly adds to the truck movement of the camera"
             },
             {
                 "addLocalRoll",
                 &luascriptfunctions::addLocalRoll,
-                {},
                 "double, double",
                 "Directly adds to the local roll of the camera"
             },
             {
                 "addGlobalRoll",
                 &luascriptfunctions::addGlobalRoll,
-                {},
                 "double, double",
                 "Directly adds to the global roll of the camera"
             }
