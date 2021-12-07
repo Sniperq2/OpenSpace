@@ -42,11 +42,9 @@
 namespace {
     constexpr const char* _loggerCat = "ExoplanetsModuleGUI";
     constexpr const char* GuiFont = "${FONTS}/arimo/Arimo-Regular.ttf";
-    constexpr const float FontSize = 14.f;
+    constexpr const float FontSize = 16.f;
 
     constexpr const std::array<const char*, 2> UniformNames = { "tex", "ortho" };
-
-    const ImVec2 DefaultSize = ImVec2(350, 350);
 } // namespace
 
 namespace openspace::exoplanets::gui {
@@ -389,25 +387,7 @@ bool Gui::charCallback(unsigned int character, KeyModifier) {
 }
 
 void Gui::render() {
-    ImGui::SetNextWindowSize(DefaultSize, ImGuiCond_FirstUseEver);
-    ImGui::Begin("ExoplanetExpertTool Gui", nullptr);
-
     _dataViewer.render();
-
-#ifdef SHOW_IMGUI_HELPERS
-    ImGui::Checkbox("ImGUI Helpers", &_showHelpers);
-    if (_showHelpers) {
-        ImGui::Begin("Style Editor");
-        ImGui::ShowStyleEditor();
-        ImGui::End();
-
-        ImGui::ShowDemoWindow();
-        ImGui::ShowMetricsWindow();
-        ImPlot::ShowDemoWindow();
-    }
-#endif
-
-    ImGui::End();
 }
 
 Gui::Context Gui::createContext() {

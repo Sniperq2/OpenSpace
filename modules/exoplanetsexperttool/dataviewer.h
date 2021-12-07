@@ -77,11 +77,10 @@ public:
 private:
     void initializeRenderables();
     void renderHelpMarker(const char* text);
-    void renderScatterPlotAndColormap();
     void renderTable();
 
-    // Render filter settings and return true if filtering changed
-    bool renderFilterSettings();
+    void renderScatterPlotAndColormapWindow(bool* open);
+    void renderFilterSettingsWindow(bool* open);
 
     void renderTSMRadarPlot(const ExoplanetItem& item);
 
@@ -124,6 +123,8 @@ private:
         ColumnFilter filter;
     };
     std::vector<ColumnFilterEntry> _appliedFilters;
+
+    bool _filterChanged = false;
 };
 
 } // namespace openspace::exoplanets::gui

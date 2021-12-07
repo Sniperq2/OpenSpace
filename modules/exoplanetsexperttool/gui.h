@@ -36,8 +36,6 @@
 #include <ghoul/opengl/uniformcache.h>
 #include <array>
 
-#define SHOW_IMGUI_HELPERS
-
 struct ImGuiContext;
 struct ImPlotContext;
 
@@ -91,10 +89,6 @@ private:
     std::vector<Context> _contexts;
 
     DataViewer _dataViewer;
-
-#ifdef SHOW_IMGUI_HELPERS
-    bool _showHelpers = false;
-#endif // SHOW_IMGUI_HELPERS
 };
 
 } // namespace openspace::exoplanets::gui

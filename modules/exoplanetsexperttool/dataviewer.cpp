@@ -43,6 +43,8 @@
 
 #include <implot.h>
 
+#define SHOW_IMGUI_HELPERS
+
 namespace {
     constexpr const char _loggerCat[] = "ExoplanetsDataViewer";
 
@@ -68,6 +70,8 @@ namespace {
 
     constexpr const glm::vec3 DefaultSelectedColor = { 0.2f, 0.8f, 1.f };
     constexpr const glm::vec4 NanPointColor = { 0.3f, 0.3f, 0.3f, 1.f };
+
+    const ImVec2 DefaultWindowSize = ImVec2(350, 350);
 
     constexpr const float DefaultColorScaleMinValue = 0.f;
     constexpr const float DefaultColorScaleMaxValue = 100.f;
@@ -246,6 +250,45 @@ void DataViewer::initializeRenderables() {
 }
 
 void DataViewer::render() {
+    static bool showFilterSettingsWindow = true;
+    static bool showScatterPlotAndColormapWindow = true;
+
+    ImGui::SetNextWindowSize(DefaultWindowSize, ImGuiCond_FirstUseEver);
+    ImGui::Begin("ExoplanetExpertTool Gui", nullptr, ImGuiWindowFlags_MenuBar);
+
+    if (showFilterSettingsWindow) {
+        renderFilterSettingsWindow(&showFilterSettingsWindow);
+    }
+    if (showScatterPlotAndColormapWindow) {
+        renderScatterPlotAndColormapWindow(&showScatterPlotAndColormapWindow);
+    }
+
+#ifdef SHOW_IMGUI_HELPERS
+    static bool showHelpers = false;
+    if (showHelpers) {
+        ImGui::Begin("Style Editor");
+        ImGui::ShowStyleEditor();
+        ImGui::End();
+
+        ImGui::ShowDemoWindow();
+        ImGui::ShowMetricsWindow();
+        ImPlot::ShowDemoWindow();
+    }
+#endif
+
+    if (ImGui::BeginMenuBar()) {
+        if (ImGui::BeginMenu("Windows")) {
+            ImGui::MenuItem("Filters", NULL, &showFilterSettingsWindow);
+            ImGui::MenuItem("Colormap and Ra/Dec Plot", NULL, &showScatterPlotAndColormapWindow);
+#ifdef SHOW_IMGUI_HELPERS
+            ImGui::MenuItem("ImGui Helpers", NULL, &showHelpers);
+#endif
+            ImGui::EndMenu();
+        }
+        ImGui::EndMenuBar();
+    }
+
+    // This is the main view
     renderTable();
     ImGui::Spacing();
 
@@ -255,7 +298,7 @@ void DataViewer::render() {
         renderTSMRadarPlot(_data[_selection[0]]); // For now just the first
     }
 
-    renderScatterPlotAndColormap();
+    ImGui::End();
 }
 
 void DataViewer::renderHelpMarker(const char* text) {
@@ -269,10 +312,16 @@ void DataViewer::renderHelpMarker(const char* text) {
     }
 }
 
-void DataViewer::renderScatterPlotAndColormap() {
+void DataViewer::renderScatterPlotAndColormapWindow(bool* open) {
     _colormapWasChanged = false;
 
-    static const ImVec2 size = { 400, 300 };
+    ImGui::SetNextWindowSize(ImVec2(430, 450), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("Colormap and Ra/Dec Plot", open)) {
+        ImGui::End();
+        return;
+    }
+
+    static const ImVec2 plotSize = { 400, 300 };
     auto plotFlags = ImPlotFlags_NoLegend;
     auto axisFlags = ImPlotAxisFlags_None;
 
@@ -378,11 +427,13 @@ void DataViewer::renderScatterPlotAndColormap() {
     ImVec4 selectedColor =
         { DefaultSelectedColor.x, DefaultSelectedColor.y, DefaultSelectedColor.z, 1.f };
 
+    ImGui::Spacing();
+
     // Scatterplot
     static float pointSize = 1.5f;
     ImPlot::PushColormap(_colormaps[_currentColormapIndex]);
     ImPlot::SetNextPlotLimits(0.0, 360.0, -90.0, 90.0, ImGuiCond_Always);
-    if (ImPlot::BeginPlot("Star Coordinate", "Ra", "Dec", size, plotFlags, axisFlags)) {
+    if (ImPlot::BeginPlot("Star Coordinate", "Ra", "Dec", plotSize, plotFlags, axisFlags)) {
         ImPlot::PushStyleVar(ImPlotStyleVar_MarkerSize, pointSize);
 
         for (size_t i : _filteredData) {
@@ -422,7 +473,7 @@ void DataViewer::renderScatterPlotAndColormap() {
             "##ColorScale",
             _colorScaleMin,
             _colorScaleMax,
-            ImVec2(60, size.y)
+            ImVec2(60, plotSize.y)
         );
 
         ImGui::SetNextItemWidth(70);
@@ -430,11 +481,11 @@ void DataViewer::renderScatterPlotAndColormap() {
 
         ImPlot::PopColormap();
     }
+
+    ImGui::End();
 }
 
 void DataViewer::renderTable() {
-    static const ImVec2 size = { 0, 400 };
-
     static ImGuiTableFlags flags =
         ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY
         | ImGuiTableFlags_BordersV | ImGuiTableFlags_BordersOuter
@@ -447,17 +498,16 @@ void DataViewer::renderTable() {
     const int nColumns = static_cast<int>(_columns.size());
 
     bool selectionChanged = false;
-    bool filterChanged = renderFilterSettings();
 
     ImGui::Separator();
     ImGui::TextColored(
         ImVec4(0.6f, 0.6f, 0.6f, 1.f),
         fmt::format(
-            "Showing {} / {} matching exoplanets", _filteredData.size(), _data.size()
+            "Showing {} exoplanets out of a total {}", _filteredData.size(), _data.size()
         ).c_str()
     );
 
-    if (ImGui::BeginTable("exoplanets_table", nColumns, flags, size)) {
+    if (ImGui::BeginTable("exoplanets_table", nColumns, flags)) {
         // Header
         for (auto c : _columns) {
             ImGuiTableColumnFlags colFlags = ImGuiTableColumnFlags_PreferSortDescending;
@@ -471,7 +521,7 @@ void DataViewer::renderTable() {
 
         // Sorting
         if (ImGuiTableSortSpecs* sortSpecs = ImGui::TableGetSortSpecs()) {
-            if (sortSpecs->SpecsDirty || filterChanged) {
+            if (sortSpecs->SpecsDirty || _filterChanged) {
                 auto compare = [&sortSpecs, this](const size_t& lhs,
                                                   const size_t& rhs) -> bool
                 {
@@ -541,7 +591,7 @@ void DataViewer::renderTable() {
         }
         ImGui::EndTable();
 
-        if (filterChanged || _colormapWasChanged) {
+        if (_filterChanged || _colormapWasChanged) {
             writeRenderDataToFile();
         }
 
@@ -551,7 +601,15 @@ void DataViewer::renderTable() {
     }
 }
 
-bool DataViewer::renderFilterSettings() {
+void DataViewer::renderFilterSettingsWindow(bool* open) {
+    _filterChanged = false;
+
+    ImGui::SetNextWindowSize(ImVec2(430, 450), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("Filters", open)) {
+        ImGui::End();
+        return;
+    }
+
     // Some pre-defined filters
     static bool hideNanTsm = false;
     static bool hideNanEsm = false;
@@ -565,27 +623,25 @@ bool DataViewer::renderFilterSettings() {
     static bool showSubJovians = false;
     static bool showLargerPlanets = false;
 
-    bool filterChanged = false;
-
     // Filtering
-    filterChanged |= ImGui::Checkbox("Hide null TSM", &hideNanTsm);
+    _filterChanged |= ImGui::Checkbox("Hide null TSM", &hideNanTsm);
     ImGui::SameLine();
-    filterChanged |= ImGui::Checkbox("Hide null ESM", &hideNanEsm);
+    _filterChanged |= ImGui::Checkbox("Hide null ESM", &hideNanEsm);
+
+    _filterChanged |= ImGui::Checkbox("Only multi-planet", &showOnlyMultiPlanetSystems);
     ImGui::SameLine();
-    filterChanged |= ImGui::Checkbox("Only multi-planet", &showOnlyMultiPlanetSystems);
-    ImGui::SameLine();
-    filterChanged |= ImGui::Checkbox("Must have 3D positional data", &showOnlyHasPosition);
+    _filterChanged |= ImGui::Checkbox("Must have 3D positional data", &showOnlyHasPosition);
     ImGui::SameLine();
     renderHelpMarker(
         "Only include data points that will show up in OpenSpace's 3D rendered view"
     );
 
     ImGui::Text("Planet bin");
-    filterChanged |= ImGui::Checkbox("Terrestrial (Rp < 1.5)", &showTerrestrial);
-    filterChanged |= ImGui::Checkbox("Small sub-Neptune (1.5 < Rp < 2.75)", &showSmallSubNeptunes);
-    filterChanged |= ImGui::Checkbox("Large sub-Neptune (2.75 < Rp < 4.0)", &showLargeSubNeptunes);
-    filterChanged |= ImGui::Checkbox("Sub-Jovian (4.0 < Rp < 10)", &showSubJovians);
-    filterChanged |= ImGui::Checkbox("Larger (Rp > 10)", &showLargerPlanets);
+    _filterChanged |= ImGui::Checkbox("Terrestrial (Rp < 1.5)", &showTerrestrial);
+    _filterChanged |= ImGui::Checkbox("Small sub-Neptune (1.5 < Rp < 2.75)", &showSmallSubNeptunes);
+    _filterChanged |= ImGui::Checkbox("Large sub-Neptune (2.75 < Rp < 4.0)", &showLargeSubNeptunes);
+    _filterChanged |= ImGui::Checkbox("Sub-Jovian (4.0 < Rp < 10)", &showSubJovians);
+    _filterChanged |= ImGui::Checkbox("Larger (Rp > 10)", &showLargerPlanets);
 
     // Per-column filtering
     static int filterColIndex = 0;
@@ -643,7 +699,7 @@ bool DataViewer::renderFilterSettings() {
         if (filter.isValid()) {
             _appliedFilters.push_back({ filterColIndex , filter });
             strcpy(queryString, "");
-            filterChanged = true;
+            _filterChanged = true;
         }
     }
 
@@ -685,7 +741,7 @@ bool DataViewer::renderFilterSettings() {
 
             if (indexToErase != -1) {
                 _appliedFilters.erase(_appliedFilters.begin() + indexToErase);
-                filterChanged = true;
+                _filterChanged = true;
             }
 
             ImGui::EndTable();
@@ -693,9 +749,12 @@ bool DataViewer::renderFilterSettings() {
         ImGui::Unindent();
     }
 
+    ImGui::End(); // Filter settings window
+
     bool selectionChanged = false;
 
-    if (filterChanged) {
+    // Update the filtered data
+    if (_filterChanged) {
         _filteredData.clear();
         _filteredData.reserve(_data.size());
 
@@ -708,9 +767,10 @@ bool DataViewer::renderFilterSettings() {
             filteredOut |= showOnlyMultiPlanetSystems && !d.multiSystemFlag;
             filteredOut |= showOnlyHasPosition && !d.position.has_value();
 
-            bool hasBinFilter = showTerrestrial || showSmallSubNeptunes || 
-                                showLargeSubNeptunes || showSubJovians || 
+            bool hasBinFilter = showTerrestrial || showSmallSubNeptunes ||
+                                showLargeSubNeptunes || showSubJovians ||
                                 showLargerPlanets;
+
             if (hasBinFilter) {
                 bool matchesBinFilter = false;
                 if (d.radius.hasValue()) {
@@ -760,8 +820,6 @@ bool DataViewer::renderFilterSettings() {
             updateSelectionInRenderable();
         }
     }
-
-    return filterChanged;
 }
 
 void DataViewer::renderTSMRadarPlot(const ExoplanetItem& item) {
