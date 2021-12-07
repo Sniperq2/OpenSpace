@@ -552,10 +552,18 @@ void DataViewer::renderTable() {
 }
 
 bool DataViewer::renderFilterSettings() {
+    // Some pre-defined filters
     static bool hideNanTsm = false;
     static bool hideNanEsm = false;
     static bool showOnlyMultiPlanetSystems = false;
     static bool showOnlyHasPosition = false;
+
+    // Planet bins
+    static bool showTerrestrial = false;
+    static bool showSmallSubNeptunes = false;
+    static bool showLargeSubNeptunes = false;
+    static bool showSubJovians = false;
+    static bool showLargerPlanets = false;
 
     bool filterChanged = false;
 
@@ -571,6 +579,13 @@ bool DataViewer::renderFilterSettings() {
     renderHelpMarker(
         "Only include data points that will show up in OpenSpace's 3D rendered view"
     );
+
+    ImGui::Text("Planet bin");
+    filterChanged |= ImGui::Checkbox("Terrestrial (Rp < 1.5)", &showTerrestrial);
+    filterChanged |= ImGui::Checkbox("Small sub-Neptune (1.5 < Rp < 2.75)", &showSmallSubNeptunes);
+    filterChanged |= ImGui::Checkbox("Large sub-Neptune (2.75 < Rp < 4.0)", &showLargeSubNeptunes);
+    filterChanged |= ImGui::Checkbox("Sub-Jovian (4.0 < Rp < 10)", &showSubJovians);
+    filterChanged |= ImGui::Checkbox("Larger (Rp > 10)", &showLargerPlanets);
 
     // Per-column filtering
     static int filterColIndex = 0;
@@ -687,11 +702,29 @@ bool DataViewer::renderFilterSettings() {
         for (int i = 0; i < _data.size(); i++) {
             const ExoplanetItem& d = _data[i];
 
+            // Pre-defined filters
             bool filteredOut = hideNanTsm && std::isnan(d.tsm);
             filteredOut |= hideNanEsm && std::isnan(d.esm);
             filteredOut |= showOnlyMultiPlanetSystems && !d.multiSystemFlag;
             filteredOut |= showOnlyHasPosition && !d.position.has_value();
 
+            bool hasBinFilter = showTerrestrial || showSmallSubNeptunes || 
+                                showLargeSubNeptunes || showSubJovians || 
+                                showLargerPlanets;
+            if (hasBinFilter) {
+                bool matchesBinFilter = false;
+                if (d.radius.hasValue()) {
+                    float r = d.radius.value;
+                    matchesBinFilter |= showTerrestrial && (r <= 1.5);
+                    matchesBinFilter |= showSmallSubNeptunes && (r > 1.5 && r <= 2.75);
+                    matchesBinFilter |= showLargeSubNeptunes && (r > 2.75 && r <= 4.0);
+                    matchesBinFilter |= showSubJovians && (r > 4.0 && r <= 10.0);
+                    matchesBinFilter |= showLargerPlanets && (r > 10.0);
+                }
+                filteredOut |= !matchesBinFilter;
+            }
+
+            // Other filters
             for (const ColumnFilterEntry& f : _appliedFilters) {
                 std::variant<const char*, float> value =
                     valueFromColumn(_columns[f.columnIndex].id, d);
