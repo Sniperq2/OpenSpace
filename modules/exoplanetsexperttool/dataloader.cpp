@@ -80,13 +80,13 @@ std::vector<ExoplanetItem> DataLoader::loadData() {
    std::vector<ExoplanetItem> planets;
    planets.reserve(nRows);
 
-   int idCounter = 0;
-
    for (int row = 1; row < nRows; row++) {
        ExoplanetItem p;
        std::string name;
        std::string component;
        std::string hostStar;
+
+       p.id = row - 1;
 
        for (int col = 0; col < columns.size(); col++) {
            const std::string& column = columns[col];
@@ -209,9 +209,6 @@ std::vector<ExoplanetItem> DataLoader::loadData() {
            const double M = static_cast<double>(p.mass.value) * EarthMass;
            p.surfaceGravity.value = static_cast<float>((G * M) / (r * r));
        }
-
-       p.id = idCounter;
-       idCounter++;
 
        planets.push_back(p);
    }

@@ -33,6 +33,15 @@
 
 namespace {
     constexpr const char _loggerCat[] = "ExoplanetsExpertToolModule";
+
+    constexpr const openspace::properties::Property::PropertyInfo FilteredDataRowsInfo =
+    {
+        "FilteredDataRows",
+        "Filtered Data Rows",
+        "Contains the indices of the rows in the data file that are currently being "
+        "shown in the tool.",
+        openspace::properties::Property::Visibility::Hidden
+    };
 }
 
 namespace openspace {
@@ -41,9 +50,13 @@ using namespace exoplanets;
 
 ExoplanetsExpertToolModule::ExoplanetsExpertToolModule()
     : OpenSpaceModule(Name)
-    , _gui("ExoplanetsToolGui")
+    , _filteredRows(FilteredDataRowsInfo)
+    ,_gui("ExoplanetsToolGui")
 {
     addPropertySubOwner(_gui);
+
+    _filteredRows.setReadOnly(true);
+    addProperty(_filteredRows);
 
     global::callback::initialize->emplace_back([&]() {
         LDEBUG("Initializing Exoplanets Expert Tool GUI");

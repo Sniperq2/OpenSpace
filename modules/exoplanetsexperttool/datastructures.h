@@ -44,7 +44,7 @@ struct DataPoint {
 };
 
 struct ExoplanetItem {
-    int id; // Id used for UI
+    int id; // Id used for UI (same as row number in data file)
     std::string planetName;
     std::string hostName;
     DataPoint radius; // in Earth radii

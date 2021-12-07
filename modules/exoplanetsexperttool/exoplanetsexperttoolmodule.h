@@ -29,6 +29,7 @@
 
 #include <modules/exoplanetsexperttool/gui.h>
 #include <openspace/documentation/documentation.h>
+#include <openspace/properties/list/intlistproperty.h>
 
 namespace openspace {
 
@@ -43,6 +44,8 @@ public:
 
 protected:
     void internalInitialize(const ghoul::Dictionary&) override;
+
+    properties::IntListProperty _filteredRows;
 
     exoplanets::gui::Gui _gui;
     glm::vec2 _mousePosition = glm::vec2(0.f);

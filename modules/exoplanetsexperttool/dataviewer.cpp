@@ -24,9 +24,11 @@
 
 #include <modules/exoplanetsexperttool/dataviewer.h>
 
+#include <modules/exoplanetsexperttool/exoplanetsexperttoolmodule.h>
 #include <modules/exoplanetsexperttool/rendering/renderablepointdata.h>
 #include <modules/imgui/include/imgui_include.h>
 #include <openspace/engine/globals.h>
+#include <openspace/engine/moduleengine.h>
 #include <openspace/query/query.h>
 #include <openspace/rendering/renderable.h>
 #include <openspace/rendering/renderengine.h>
@@ -815,6 +817,18 @@ void DataViewer::renderFilterSettingsWindow(bool* open) {
             }
         }
         _filteredData.shrink_to_fit();
+
+        // Update the property in the module
+        auto mod = global::moduleEngine->module<ExoplanetsExpertToolModule>();
+        properties::Property* filteredRowsProperty = mod->property("FilteredDataRows");
+        if (filteredRowsProperty) {
+            std::vector<int> indices;
+            indices.reserve(_filteredData.size());
+            std::transform(_filteredData.begin(), _filteredData.end(), std::back_inserter(indices),
+                [&data = _data](size_t i) -> int { return data[i].id; });
+
+            filteredRowsProperty->set(indices);
+        }
 
         if (selectionChanged) {
             updateSelectionInRenderable();
