@@ -115,7 +115,7 @@ linux_gcc_make: {
       }
       stage('linux-gcc-make/test') {
         // testHelper.runUnitTests('build/OpenSpaceTest');
-        // testHelper.runUnitTests('bin/codegentest')
+        testHelper.runUnitTests('bin/codegentest')
       }
       cleanWs()
     } // node('linux')
@@ -136,7 +136,7 @@ linux_gcc_ninja: {
       }
       stage('linux-gcc-ninja/test') {
         // testHelper.runUnitTests('build/OpenSpaceTest');
-        // testHelper.runUnitTests('bin/codegentest')
+        testHelper.runUnitTests('bin/codegentest')
       }
       cleanWs()
     } // node('linux')
@@ -158,7 +158,7 @@ linux_clang_make: {
       }
       stage('linux-clang-make/test') {
         // testHelper.runUnitTests('build/OpenSpaceTest');
-        // testHelper.runUnitTests('bin/codegentest')
+        testHelper.runUnitTests('bin/codegentest')
       }
       cleanWs()
     } // node('linux')
@@ -179,7 +179,7 @@ linux_clang_ninja: {
       }
       stage('linux-clang-ninja/test') {
         // testHelper.runUnitTests('build/OpenSpaceTest');
-        // testHelper.runUnitTests('bin/codegentest')
+        testHelper.runUnitTests('bin/codegentest')
       }
       cleanWs()
     } // node('linux')
@@ -238,6 +238,7 @@ macos_make: {
       stage('macos-make/test') {
         // Currently, the unit tests are crashing on OS X
         // testHelper.runUnitTests('build/Debug/OpenSpaceTest')
+        testHelper.runUnitTests('build/Debug/codegentest')
       }
       cleanWs()
     } // node('macos')
@@ -256,6 +257,7 @@ macos_xcode: {
       stage('macos-xcode/test') {
         // Currently, the unit tests are crashing on OS X
         // testHelper.runUnitTests('build/Debug/OpenSpaceTest')
+        testHelper.runUnitTests('build/Debug/codegentest')
       }
       cleanWs()
     } // node('macos')
